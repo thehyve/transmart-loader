@@ -12,7 +12,6 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.1</version>
                     <configuration>
@@ -22,8 +21,12 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
+                    <version>2.4</version>
+                </plugin>
+
+                <plugin>
+                    <artifactId>maven-assembly-plugin</artifactId>
                     <version>2.4</version>
                 </plugin>
 
@@ -108,7 +111,7 @@
                     <archive>
                         <index>true</index>
                         <manifest>
-                            <mainClass>com.recomdata.pipeline.converter.Converter</mainClass>
+                            <mainClass>${main.class}</mainClass>
                             <addClasspath>true</addClasspath>
                         </manifest>
                         <manifestEntries>
@@ -116,6 +119,36 @@
                         </manifestEntries>
                     </archive>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <index>true</index>
+                        <manifest>
+                            <mainClass>${main.class}</mainClass>
+                            <addClasspath>true</addClasspath>
+                        </manifest>
+                        <manifestEntries>
+                            <Commit>${git.commit.id.describe}</Commit>
+                        </manifestEntries>
+                    </archive>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <appendAssemblyId>true</appendAssemblyId>
+                    <finalName>loader</finalName>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>
@@ -126,7 +159,6 @@
             <groupId>org.codehaus.groovy</groupId>
             <artifactId>groovy-all</artifactId>
             <version>${groovy.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -163,13 +195,12 @@
     </distributionManagement>
 
     <properties>
-        <project.build.finalName>loader.jar</project.build.finalName>
-
         <log4j.version>1.2.17</log4j.version>
         <junit.version>4.11</junit.version>
         <groovy.version>2.1.0</groovy.version>
         <gmavenProviderSelection>2.0</gmavenProviderSelection>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <main.class>com.recomdata.pipeline.converter.Converter</main.class>
     </properties>
 
 </project>
