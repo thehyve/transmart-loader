@@ -113,6 +113,7 @@
                         <manifest>
                             <mainClass>${main.class}</mainClass>
                             <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
                         </manifest>
                         <manifestEntries>
                             <Commit>${git.commit.id.describe}</Commit>
