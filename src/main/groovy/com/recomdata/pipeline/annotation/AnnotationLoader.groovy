@@ -20,26 +20,25 @@
 
 package com.recomdata.pipeline.annotation
 
-import org.apache.log4j.Logger;
-import org.apache.log4j.PropertyConfigurator
-
+import com.recomdata.pipeline.entrypoint.Pipeline
 import com.recomdata.pipeline.plink.SnpGeneMap
 import com.recomdata.pipeline.plink.SnpInfo
 import com.recomdata.pipeline.plink.SnpProbe
 import com.recomdata.pipeline.transmart.GplInfo
 import com.recomdata.pipeline.util.Util
 import groovy.sql.Sql
+import org.slf4j.Logger
+
+import javax.enterprise.event.Observes
+import javax.inject.Inject
 
 class AnnotationLoader {
 
-	private static final Logger log = Logger.getLogger(AnnotationLoader)
+	@Inject private Logger log
 
-	static main(args) {
+	public main(@Observes @Pipeline('annotation') List<String> args) {
 
-		PropertyConfigurator.configure("conf/log4j.properties");
-
-		Util util = new Util()
-		AnnotationLoader al = new AnnotationLoader()
+		Util util
 
 		Map expectedProbes = ["GPL2005-3532.txt":59015, "GPL2004-3450.txt":57299,
 					"GPL3718-44346.txt":2622264, "GPL3720-22610.txt":238304]
@@ -49,21 +48,21 @@ class AnnotationLoader {
 		Sql deapp = Util.createSqlFromPropertyFile(props, "deapp")
 		Sql biomart = Util.createSqlFromPropertyFile(props, "biomart")
 
-		al.loadGPL(props, biomart, expectedProbes)
+		loadGPL(props, biomart, expectedProbes)
 		println new Date()
-		al.loadSnpInfo(props, deapp)
+		loadSnpInfo(props, deapp)
 		println new Date()
-		al.loadSnpProbe(props, deapp)
+		loadSnpProbe(props, deapp)
 		println new Date()
-		al.loadSnpGeneMap(props, deapp)
+		loadSnpGeneMap(props, deapp)
 		println new Date()
-		al.loadGplInfo(props, deapp)
+		loadGplInfo(props, deapp)
 
-		al.loadAffymetrix(props, biomart)
-		al.loadTaxonomy(props, biomart)
-		al.loadGeneInfo(props, biomart)
+		loadAffymetrix(props, biomart)
+		loadTaxonomy(props, biomart)
+		loadGeneInfo(props, biomart)
 
-		al.loadGxGPL(props, biomart)
+		loadGxGPL(props, biomart)
 	}
 
 

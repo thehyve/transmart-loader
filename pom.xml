@@ -124,6 +124,16 @@
         </plugins>
     </build>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.codehaus.groovy</groupId>
@@ -132,9 +142,21 @@
         </dependency>
 
         <dependency>
+            <groupId>org.jboss.weld.se</groupId>
+            <artifactId>weld-se-core</artifactId>
+            <version>${weld.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>log4j</groupId>
             <artifactId>log4j</artifactId>
             <version>${log4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jboss.weld</groupId>
+            <artifactId>weld-logger</artifactId>
+            <version>${weld.logger.version}</version>
         </dependency>
 
         <dependency>
@@ -148,6 +170,13 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>${postgresql.jdbc.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>${slf4j.version}</version>
             <scope>runtime</scope>
         </dependency>
     </dependencies>
@@ -172,13 +201,16 @@
     </distributionManagement>
 
     <properties>
+        <weld.version>2.0.3.Final</weld.version>
+        <weld.logger.version>1.0.0-CR2</weld.logger.version>
         <log4j.version>1.2.17</log4j.version>
+        <slf4j.version>1.7.5</slf4j.version>
         <junit.version>4.11</junit.version>
         <groovy.version>2.1.0</groovy.version>
         <postgresql.jdbc.version>9.2-1003-jdbc4</postgresql.jdbc.version>
         <gmavenProviderSelection>2.0</gmavenProviderSelection>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main.class>com.recomdata.pipeline.converter.Converter</main.class>
+        <main.class>com.recomdata.pipeline.entrypoint.Bootstrap</main.class>
     </properties>
 
 </project>
