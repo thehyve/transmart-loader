@@ -76,21 +76,6 @@ class SnpInfo {
 		log.info "End loading data into the table DE_SNP_INFO ... "
 	}
 
-
-	void loadSnpInfo(){
-
-		log.info "Start loading data into the table DE_SNP_INFO ... "
-
-		String qry = """insert into de_snp_info nologging (name, chrom, chrom_pos)
-					    select distinct snp_id, chrom, pos
-						from """ + annotationTable + """
-                        where upper(snp_id) not in (select upper(name) from de_snp_info)"""
-		deapp.execute(qry)
-
-		log.info "End loading data into the table DE_SNP_INFO ... "
-	}
-
-
 	void loadSnpInfo(Map columnMap){
 
 		log.info "Start loading data into the table DE_SNP_INFO ... "
@@ -122,12 +107,4 @@ class SnpInfo {
 		log.info "End creating table $tempSnpInfoTable ..."
 	}
 
-
-	void setAnnotationTable(String annotationTable){
-		this.annotationTable = annotationTable
-	}
-
-	void setSql(Sql deapp){
-		this.deapp = deapp
-	}
 }
