@@ -33,6 +33,9 @@ driver_class=oracle.jdbc.driver.OracleDriver
 # localhost Oracle EE
 url=jdbc:oracle:thin:@localhost:1521:haxia
 
+tm_cz_username=tm_cz
+tm_cz_password=tm_cz
+
 tm_lz_username=deapp
 tm_lz_password=deapp
 

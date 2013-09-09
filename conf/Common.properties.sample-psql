@@ -22,6 +22,9 @@ driver_class=org.postgresql.Driver
 
 url=jdbc:postgresql://localhost:5432/transmart
 
+tm_cz_username=tm_cz
+tm_cz_password=tm_cz
+
 tm_lz_username=deapp
 tm_lz_password=deapp
 
