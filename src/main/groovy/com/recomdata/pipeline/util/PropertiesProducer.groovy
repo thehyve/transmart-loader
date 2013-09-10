@@ -1,9 +1,12 @@
 package com.recomdata.pipeline.util
 
+import org.slf4j.Logger
+
 import javax.enterprise.context.ApplicationScoped
 import javax.enterprise.context.Dependent
 import javax.enterprise.inject.Produces
 import javax.enterprise.inject.spi.InjectionPoint
+import javax.inject.Inject
 
 /**
  * Provides properties files read from the file system.
@@ -11,7 +14,10 @@ import javax.enterprise.inject.spi.InjectionPoint
 @ApplicationScoped
 class PropertiesProducer {
 
-    private final static String CONF_LOCATION = "conf"
+    @Inject
+    private Logger log
+
+    String confLocation = "conf"
 
     private final Map<String, Properties> cachedProperties = new HashMap()
 
@@ -25,21 +31,37 @@ class PropertiesProducer {
     @Produces @Dependent @FileRef('')
     synchronized Properties produceProperties(InjectionPoint injectionPoint) throws IOException {
         FileRef fileAnnotation = injectionPoint.qualifiers.find { it instanceof FileRef }
+        def location = fileAnnotation.value()
 
-        if (!cachedProperties.containsKey(fileAnnotation.value())) {
+        if (!cachedProperties.containsKey(location)) {
             Properties properties = new Properties()
             Properties.metaClass.getAsBoolean = { String key ->
                 delegate.getProperty(key).
                         toString().toLowerCase().equals("yes")
             }
 
-            File file = new File(CONF_LOCATION, fileAnnotation.value() + '.properties')
+            InputStream inputStream
+
+            if (location.startsWith('classpath:')) {
+                def classpathLocation = (location - 'classpath:') + '.properties'
+                log.debug 'Loading properties from classpath resource {}', classpathLocation
+
+                inputStream = Thread.currentThread().contextClassLoader.
+                        getResourceAsStream(classpathLocation)
+            } else {
+                def file = new File(confLocation, location + '.properties')
+                log.debug 'Loading properties from filesystem resource {}', file
+
+                inputStream = file.newInputStream()
+            }
 
             cachedProperties[fileAnnotation.value()] =
-                file.withInputStream {
+                inputStream.withStream {
                     properties.load it
                     properties
                 }
+        } else {
+            log.debug 'Returning cached instance for file reference {}', location
         }
 
         cachedProperties[fileAnnotation.value()]

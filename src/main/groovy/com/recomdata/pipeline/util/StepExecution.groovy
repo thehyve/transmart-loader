@@ -32,4 +32,8 @@ class StepExecution {
     Object getAt(String key) {
         params[key]
     }
+
+    void putAt(String key, Object value) {
+        params[key] = value
+    }
 }
