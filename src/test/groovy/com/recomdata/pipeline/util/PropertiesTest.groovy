@@ -64,4 +64,10 @@ class PropertiesTest {
         assertThat props.getProperty('foo'), is(equalTo('bar'))
     }
 
+    @Test
+    void testBooleanProperties() {
+        assertThat classpathLoadedProperties.getAsBoolean('booleanVarTrue'), is(true)
+        assertThat classpathLoadedProperties.getAsBoolean('booleanVarElse'), is(false)
+    }
+
 }

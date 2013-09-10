@@ -5,7 +5,7 @@ import org.jboss.shrinkwrap.api.asset.EmptyAsset
 import org.jboss.shrinkwrap.api.spec.JavaArchive
 
 /**
- * Mixin to assist on writing integration tests for CDI.
+ * Util class to assist with writing integration tests for CDI.
  */
 class CDIIntegration {
 
