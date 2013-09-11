@@ -20,29 +20,33 @@
 
 package com.recomdata.pipeline.annotation
 
-import java.util.Properties;
-
-import groovy.sql.Sql
-import org.apache.log4j.Logger
-
-import org.apache.log4j.PropertyConfigurator
-import groovy.sql.Sql
+import com.recomdata.pipeline.util.Step
+import com.recomdata.pipeline.util.StepExecution
 import com.recomdata.pipeline.util.Util
+import groovy.sql.Sql
+import org.apache.log4j.PropertyConfigurator
+import org.slf4j.Logger
+
+import javax.enterprise.event.Observes
+import javax.inject.Inject
 
 class GPLReader {
 
-	private static final Logger log = Logger.getLogger(GPLReader)	
+	@Inject Logger log
 	
-	String  sourceDirectory
-	Sql sql
-	Map expectedProbes
-	File snpInfo, probeInfo, snpGeneMap, gplInput, snpMap
+	File  sourceDirectory
+    Map expectedProbes
+
+	@Inject Sql sql
+
+	File probeInfo,
+            snpGeneMap,
+            snpMap
 
 	static main(args) {
 
 		PropertyConfigurator.configure("conf/log4j.properties");
 
-		Util util = new Util()
 		GPLReader al = new GPLReader()
 
 		Properties props = Util.loadConfiguration("conf/loader.properties")
@@ -80,43 +84,47 @@ class GPLReader {
 		}
 	}
 
-	void processGPLs(String inputFileName){
+	void processGPLs(@Observes @Step('processGPLs') StepExecution stepParams) {
 
-		long numProbes
-		if(inputFileName.indexOf(";")){
-			String [] names = inputFileName.split(";")
-			for(int i in 0..names.size()-1){
-				File inputFile = new File(sourceDirectory + File.separator + names[i])
+        String inputFileName = stepParams['inputFileName'] /* actual can be several files... */
+        ['probeInfo', 'snpMap', 'snpGeneMap', 'sourceDirectory', 'expectedProbes'].
+                each { this."$it" = stepParams[it] } /* copy params to properties */
 
-				if(inputFile.exists()){
-					log.info("Start parsing " + inputFile.toString())
+        String[] files = inputFileName.split(";")
+        boolean foundSome = false
 
-					setGPLInputFile(inputFile)
-					numProbes = parseGPLFile() //probeInfo, snpGeneMap, snpMapFile)
-					if(numProbes == expectedProbes[names[i]])
-						log.info("Probes in " + names[i] + ": " + numProbes + "; expected: " + expectedProbes[names[i]])
-					else
-						log.warn("Probes in " + names[i] + ": " + numProbes + "; expected: " + expectedProbes[names[i]])
-				}else{
-					log.warn("Cannot find the file: " + inputFile.toString())
-				}
-			}
-		}else{
-			File inputFile = new File(sourceDirectory + File.separator + inputFileName)
+		for (name in files) {
+            File inputFile = new File(sourceDirectory, name)
 
-			log.info("Start parsing " + inputFile.toString())
+            if (!inputFile.exists()) {
+                log.warn 'Input file {} does not exist', inputFile
+                continue
+            }
 
-			setGPLInputFile(inputFile)
-			numProbes = parseGPLFile() //probeInfo, snpGeneMap, snpMapFile)
-			if(numProbes == expectedProbes[inputFileName])
-				log.info("Probes in " + inputFileName + ": " + numProbes + "; expected: " + expectedProbes[inputFileName])
-			else
-				log.warn("Probes in " + inputFileName + ": " + numProbes + "; expected: " + expectedProbes[inputFileName])
-		}
+            if (!expectedProbes.containsKey(name)) {
+                log.warn "File {} not known; I only know about {}", name, expectedProbes.keySet()
+            }
+
+            /* the meat: */
+            def numProbes = parseGPLFile(inputFile)
+
+            if (numProbes == expectedProbes[name])
+                log.debug "Found expected number of probes in {}: {}", name, numProbes
+            else if (expectedProbes[name])
+                log.warn "Number of probes mismatch in {}. Expected {}, got {}",
+                        name, expectedProbes[name], numProbes
+
+            foundSome = true
+        }
+
+        if (!foundSome) {
+            log.error 'None of the specified input files exist'
+            throw new IOException("None of the specified input files exist")
+        }
 	}
 
 
-	long parseGPLFile(){
+	long parseGPLFile(File gplInput){
 		String [] str, header
 		def genes = [:]
 		boolean isHeaderLine = false
@@ -126,7 +134,11 @@ class GPLReader {
 		StringBuffer sb_snpGeneMap = new StringBuffer()
 		StringBuffer sb_snpMap = new StringBuffer()
 
-		long numProbes = 0
+        log.debug 'Going to parse GPL file {}', gplInput
+
+		long numProbes = 0,
+             skippedComments = 0,
+             skippedIncomplete = 0
 		gplInput.eachLine{
 			str = it.split("\t")
 			if(str.size() > 14){
@@ -148,7 +160,7 @@ class GPLReader {
 						String snpId, rsId, chr, pos
 						if((gplInput.name.indexOf("GPL2004") > -1) || (gplInput.name.indexOf("GPL2005") > -1)){
 							// used for GPL2004 and GPL2005
-							snpId = str[0].trim()
+							snpId = str[0].trim().toUpperCase()
 							rsId = str[1].trim()
 							chr = str[2].trim()
 							pos = str[5].trim()
@@ -165,12 +177,13 @@ class GPLReader {
 
 						}
 
-						if(!chr.equals(null) && !pos.equals(null) && (chr.size()>0) && (pos.size() > 0) &&
-						!(snpId.indexOf("AFFX") >= 0)){
+						if (chr && pos && rsId && !snpId.startsWith('AFFX')) {
 							numProbes++
 							if(!rsId.equals(null) && (rsId.indexOf("---") == -1))  sb_probeinfo.append(snpId + "\t" + rsId + "\n")
 							sb_snpMap.append(chr + "\t" + snpId + "\t0\t" + pos + "\n")
-						}
+						} else {
+                            skippedIncomplete++
+                        }
 
 						genes.each { key, val ->
 							String [] s = val.split(":")
@@ -179,8 +192,13 @@ class GPLReader {
 						}
 					}
 				}
-			}
+			} else {
+                skippedComments++
+            }
 		}
+
+        log.info "Skipped $skippedComments putative comment lines and " +
+                "$skippedIncomplete lines with incomplete information"
 
 		probeInfo.append(sb_probeinfo.toString())
 		snpGeneMap.append(sb_snpGeneMap.toString())
@@ -210,30 +228,6 @@ class GPLReader {
 			}
 		}
 		return mapping
-	}
-
-
-	void setProbeInfo(File probeInfo){
-		this.probeInfo = probeInfo
-	}
-
-	void setSnpGeneMap(File snpGeneMap){
-		this.snpGeneMap = snpGeneMap
-	}
-
-
-	void setSnpMap(File snpMap){
-		this.snpMap = snpMap
-	}
-
-
-	void setGPLInputFile(File gplInput){
-		this.gplInput = gplInput
-	}
-
-
-	void setSourceDirectory(String sourceDirectory){
-		this.sourceDirectory = sourceDirectory
 	}
 
 	void setExpectedProbes(Map expectedProbes){

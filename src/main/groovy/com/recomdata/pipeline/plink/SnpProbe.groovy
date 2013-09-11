@@ -20,123 +20,103 @@
 
 package com.recomdata.pipeline.plink
 
-import java.io.File;
+import com.recomdata.pipeline.database.RDMSCompatibility
+import com.recomdata.pipeline.exception.EmptyInputFileException
+import com.recomdata.pipeline.util.Step
+import com.recomdata.pipeline.util.StepExecution
+import org.slf4j.Logger
 
-import org.apache.log4j.Logger;
+import javax.enterprise.event.Observes
+import javax.inject.Inject
+import java.io.File;
 
 import groovy.sql.Sql
 
 class SnpProbe {
 
-	private static final Logger log = Logger.getLogger(SnpProbe)
+	@Inject private Logger log
 
-	Sql deapp
+	@Inject Sql sql
+
+    @Inject RDMSCompatibility rdmsCompatibility
+
 	String annotationTable
 
-	void loadSnpProbe(File probeInfo){
+	void loadSnpProbe(@Observes @Step('loadSnpProbe_file') StepExecution stepParams) {
 
-		// create a temp table for snp_probe data
-		createTempSnpProbeTable("tmp_de_snp_probe")
+        /** see {@link com.recomdata.pipeline.annotation.AnnotationLoader#loadSnpProbe()} */
+
+        File probeInfo = stepParams['snpProbeFile']
+
+        def temporaryTable = "tmp_de_snp_probe"
+
+        rdmsCompatibility.createTemporaryTable temporaryTable, "deapp.de_snp_probe"
 
 		// store unique set of SNP ID -> rs#
 		Map rs = [:]
-		if(probeInfo.size() >0){
-			log.info("Start loading " + probeInfo.toString() + " into DE_SNP_PROBE ...")
-			probeInfo.eachLine{
+		if (probeInfo.size() > 0) {
+			log.info "Start loading {} into DE_SNP_PROBE", probeInfo
+			probeInfo.eachLine {
 				String [] str = it.split(/\t/)
 				rs[str[0]] = str[1]
 			}
-		}else{
-			log.error(probeInfo.toString() + " is empty.")
+		} else {
+            throw new EmptyInputFileException("File $probeInfo is empty")
 		}
 
-		String qry = """ insert into tmp_de_snp_probe(probe_name, snp_name) values(?, ?) """
-		if(probeInfo.size() > 0){
-			deapp.withTransaction {
-				deapp.withBatch(qry, {stmt ->
-					rs.each{k, v ->
+		String qry = """insert into $temporaryTable(probe_name, snp_name) values(?, ?) """
+		if (probeInfo.size() > 0) {
+			sql.withTransaction {
+				sql.withBatch(qry, { stmt ->
+					rs.each {k, v ->
 						stmt.addBatch([k, v])
 					}
 				})
 			}
 		}
+        rdmsCompatibility.analyzeTable temporaryTable
 
-		loadSnpProbe("tmp_de_snp_probe")
-
-		log.info "Drop the temp table TMP_DE_SNP_PROBE "
-		qry = " drop table tmp_de_snp_probe purge"
-		deapp.execute(qry)
+		loadSnpProbe(temporaryTable)
 	}
 
 	
 	void loadSnpProbe(String tmpSnpProbeTable){
 
-		log.info "Start loading data into the table DE_SNP_PROBE ... "
+		log.info "Start loading data into the table DE_SNP_PROBE"
 		
-		String qry = """insert into de_snp_probe nologging (probe_name, snp_id, snp_name)
-						select t1.probe_name, t2.snp_info_id, t1.snp_name
-						from $tmpSnpProbeTable t1, de_snp_info t2
-						where t1.probe_name=t2.name and snp_info_id not in (select snp_id from de_snp_probe)"""
-		deapp.execute(qry)
+		String qry = """
+                INSERT INTO deapp.de_snp_probe (
+                    probe_name,
+                    snp_id,
+                    snp_name )
+                SELECT
+                    PT.probe_name,
+                    I.snp_info_id,
+                    PT.snp_name
+                FROM
+                    $tmpSnpProbeTable PT
+                    INNER JOIN deapp.de_snp_info I ON (I.name = PT.probe_name)
+                WHERE
+                    NOT EXISTS (
+                        SELECT P.snp_id FROM deapp.de_snp_probe P WHERE P.snp_id = I.snp_info_id)"""
+		def affected = sql.executeUpdate qry
 
-		log.info "End loading data into the table DE_SNP_PRObE ... "
-	}
-	
-	
-	void loadSnpProbe(){
-
-		log.info "Start loading data into the table DE_SNP_PROBE ... "
-
-		String qry = """insert into de_snp_probe nologging (probe_name, snp_id, snp_name)
-						select t1.snp_id, t2.snp_info_id, t1.rs_id
-						from """ + annotationTable + """ t1, de_snp_info t2
-						where upper(t1.snp_id)=upper(t2.name) and t1.rs_id is not null and
-							  upper(snp_id) not in (select upper(snp_name) from de_snp_probe)"""
-		deapp.execute(qry)
-
-		log.info "End loading data into the table DE_SNP_PRObE ... "
-	}
+		log.info "End loading data into the table DE_SNP_PROBE ({} rows)", affected
+    }
 
 	
-
-	void loadSnpProbe(Map columnMap){
-
-		log.info "Start loading data into the table DE_SNP_PROBE ... "
-
-		String qry = """insert into de_snp_probe nologging (probe_name, snp_id, snp_name)
-						select distinct t1.${columnMap["probe"]}, t2.snp_info_id, t1.${columnMap["rs"]}
-						from """ + annotationTable + """ t1, de_snp_info t2
-						where upper(t1.${columnMap["probe"]})=upper(t2.name) and t1.${columnMap["rs"]} is not null 
-							  and t2.snp_info_id not in (select snp_id from de_snp_probe)"""
-		deapp.execute(qry)
-
-		log.info "End loading data into the table DE_SNP_PRObE ... "
-	}
-
-
-	void createTempSnpProbeTable(String tempSnpProbeTable){
-
-		String qry = "select count(1) from user_tables where table_name=upper(?)"
-		if(deapp.firstRow(qry, [tempSnpProbeTable])[0] > 0){
-			log.info "Drop table $tempSnpProbeTable ..."
-			qry = "drop table $tempSnpProbeTable purge"
-			deapp.execute(qry)
-		}
-
-		log.info "Start creating the temp table $tempSnpProbeTable ..."
-
-		qry = """ create table tmp_de_snp_probe as select * from de_snp_probe where 1=2 """
-		deapp.execute(qry)
-
-		log.info "End creating table $tempSnpProbeTable ..."
-	}
-
-
-	void setAnnotationTable(String annotationTable){
-		this.annotationTable = annotationTable
-	}
-
-	void setSql(Sql deapp){
-		this.deapp = deapp
-	}
+// TODO: refactor together with loadSnpProbe(String)
+//	void loadSnpProbe(Map columnMap){
+//
+//		log.info "Start loading data into the table DE_SNP_PROBE ... "
+//
+//		String qry = """insert into de_snp_probe nologging (probe_name, snp_id, snp_name)
+//						select distinct t1.${columnMap["probe"]}, t2.snp_info_id, t1.${columnMap["rs"]}
+//						from """ + annotationTable + """ t1, de_snp_info t2
+//						where upper(t1.${columnMap["probe"]})=upper(t2.name) and t1.${columnMap["rs"]} is not null
+//							  and t2.snp_info_id not in (select snp_id from de_snp_probe)"""
+//		sql.execute(qry)
+//
+//		log.info "End loading data into the table DE_SNP_PRObE ... "
+//	}
 }

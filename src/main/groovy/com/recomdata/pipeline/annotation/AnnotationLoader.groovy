@@ -25,152 +25,141 @@ import com.recomdata.pipeline.plink.SnpGeneMap
 import com.recomdata.pipeline.plink.SnpInfo
 import com.recomdata.pipeline.plink.SnpProbe
 import com.recomdata.pipeline.transmart.GplInfo
-import com.recomdata.pipeline.util.Util
+import com.recomdata.pipeline.util.FileRef
+import com.recomdata.pipeline.util.Preliminary
+import com.recomdata.pipeline.util.StepExecution
 import groovy.sql.Sql
 import org.slf4j.Logger
 
+import javax.enterprise.event.Event
 import javax.enterprise.event.Observes
 import javax.inject.Inject
 
 class AnnotationLoader {
 
-	@Inject private Logger log
+    private static final String KEY_DESTINATION_DIRECTORY = "destination_directory"
+    private static final String KEY_PROBE_INFO_FILE = "probe_info_file"
+    private static final String KEY_SNP_GENE_MAP_FILE = "snp_gene_map_file"
+    private static final String KEY_SNP_MAP_FILE = "snp_map_file"
+    private static final String KEY_SOURCE_DIRECTORY = "source_directory"
+    private static final String KEY_INPUT_FILE = "input_file"
+
+    @Inject private Logger log
+
+    @Inject @FileRef('Annotation') private Properties props
+
+    @Inject @FileRef('Common') private Properties common
+
+    @Inject @Preliminary Event<StepExecution> stepEvent
+
+    final static expectedProbes = [
+            "GPL2005-3532.txt":  59015,
+            "GPL2004-3450.txt":  57299,
+            "GPL3718-44346.txt": 2622264,
+            "GPL3720-22610.txt": 238304
+    ]
 
 	public main(@Observes @Pipeline('annotation') List<String> args) {
 
-		Util util
+		loadGPL expectedProbes
+		loadSnpInfo()
+		loadSnpProbe()
+		loadSnpGeneMap()
+		loadGplInfo()
 
-		Map expectedProbes = ["GPL2005-3532.txt":59015, "GPL2004-3450.txt":57299,
-					"GPL3718-44346.txt":2622264, "GPL3720-22610.txt":238304]
-
-		Properties props = Util.loadConfiguration("conf/Annotation.properties")
-
-		Sql deapp = Util.createSqlFromPropertyFile(props, "deapp")
-		Sql biomart = Util.createSqlFromPropertyFile(props, "biomart")
-
-		loadGPL(props, biomart, expectedProbes)
-		println new Date()
-		loadSnpInfo(props, deapp)
-		println new Date()
-		loadSnpProbe(props, deapp)
-		println new Date()
-		loadSnpGeneMap(props, deapp)
-		println new Date()
-		loadGplInfo(props, deapp)
-
-		loadAffymetrix(props, biomart)
-		loadTaxonomy(props, biomart)
-		loadGeneInfo(props, biomart)
-
-		loadGxGPL(props, biomart)
+        //TODO: from here on, not ported; not working
+		loadAffymetrix()
+		loadTaxonomy()
+		loadGeneInfo()
+		loadGxGPL()
 	}
 
 
 
-	void loadGplInfo(Properties props, Sql deapp){
+	void loadGplInfo() {
+        /** see {@link GplInfo#insertGplInfo(com.recomdata.pipeline.util.StepExecution)} */
+        stepEvent.fire new StepExecution(
+                skip           : props.getAsBoolean('skip_de_gpl_info'),
+                stepType       : 'insertGplInfo',
 
-		if(props.get("skip_de_gpl_info").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading DE_GPL_INFO ..."
-		}else{
-			GplInfo gi = new GplInfo()
-			gi.setDeapp(deapp)
-
-			Map gplMap = [:]
-			gplMap["platform"] = props.get("platform")
-			gplMap["title"] = props.get("title")
-			gplMap["organism"] = props.get("organism")
-			gplMap["markerType"] = props.get("marker_type")
-			gi.insertGplInfo(gplMap)
-		}
+                platform       : props.get('platform'),
+                title          : props.get('title'),
+                organism       : props.get('organism'),
+                markerType     : props.get('marker_type'),
+        )
 	}
 
 
-	void loadSnpInfo(Properties props, Sql deapp){
+	void loadSnpInfo() {
+        /** see {@link SnpInfo#loadSnpInfo(com.recomdata.pipeline.util.StepExecution)} */
+        // load de_snp_info
+        stepEvent.fire new StepExecution(
+                skip       : props.getAsBoolean('skip_de_snp_info'),
+                stepType   : 'loadSnpInfo_file',
 
-		if(props.get("skip_de_snp_info").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading DE_SNP_INFO ..."
-		}else{
-			SnpInfo si = new SnpInfo()
-			si.setDeapp(deapp)
+                snpMapFile : new File(props.get(KEY_DESTINATION_DIRECTORY), props.get(KEY_SNP_MAP_FILE)),
+        )
+	}
 
-			File snpMap = new File(props.get("destination_directory") + File.separator + props.get("snp_map_file"))
-			si.loadSnpInfo(snpMap)
-		}
+	void loadSnpProbe() {
+        /** see {@link SnpProbe#loadSnpProbe(com.recomdata.pipeline.util.StepExecution)} */
+        // load de_snp_probe
+        stepEvent.fire new StepExecution(
+                skip         : props.getAsBoolean('skip_de_snp_probe'),
+                stepType     : 'loadSnpProbe_file',
+
+                snpProbeFile : new File(props.get(KEY_DESTINATION_DIRECTORY), props.get(KEY_PROBE_INFO_FILE)),
+        )
+    }
+
+
+	void loadSnpGeneMap() {
+        /** see {@link SnpGeneMap#loadSnpGeneMap(com.recomdata.pipeline.util.StepExecution)} */
+        stepEvent.fire new StepExecution(
+                skip           : props.getAsBoolean('skip_de_snp_gene_map'),
+                stepType       : 'loadSnpGeneMap_file',
+
+                snpGeneMapFile : new File(props.get(KEY_DESTINATION_DIRECTORY), props.get(KEY_SNP_GENE_MAP_FILE)),
+        )
+	}
+
+    private File getOutputFile(String key) {
+        File file = new File(props.get(KEY_DESTINATION_DIRECTORY), props.get(key))
+
+        if (file.size()) {
+            log.warn 'The file {} was not empty; recreating anyway', file
+            if (!file.delete()) {
+                log.error 'Could not delete file {}', file
+                throw new IOException("Could not delete file $file")
+            }
+        }
+
+        file
+    }
+
+	void loadGPL(Map expectedProbes) {
+
+        /** see {@link GPLReader#processGPLs(com.recomdata.pipeline.util.StepExecution)} */
+        stepEvent.fire new StepExecution(
+                skip            : props.getAsBoolean('skip_gpl_annotation_loader'),
+                stepType        : 'processGPLs',
+
+                expectedProbes  : expectedProbes,
+                inputFileName   : props.get(KEY_INPUT_FILE),
+
+                probeInfo       : getOutputFile(KEY_PROBE_INFO_FILE),
+                snpMap          : getOutputFile(KEY_SNP_MAP_FILE),
+                snpGeneMap      : getOutputFile(KEY_SNP_GENE_MAP_FILE),
+                sourceDirectory : new File(props.get(KEY_SOURCE_DIRECTORY)),
+        )
 	}
 
 
-	void loadSnpProbe(Properties props, Sql deapp){
+	void loadAffymetrix() {
 
-		if(props.get("skip_de_snp_probe").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading DE_SNP_PROBE ..."
-		}else{
-			SnpProbe sp = new SnpProbe()
-			sp.setDeapp(deapp)
-
-			File probeInfo = new File(props.get("destination_directory") + File.separator + props.get("probe_info_file"))
-			sp.loadSnpProbe(probeInfo)
-		}
-	}
-
-
-	void loadSnpGeneMap(Properties props, Sql deapp){
-
-		if(props.get("skip_de_snp_gene_map").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading DE_SNP_GENE_MAP ..."
-		}else{
-			SnpGeneMap sp = new SnpGeneMap()
-			sp.setDeapp(deapp)
-
-			File snpGeneMap = new File(props.get("destination_directory") + File.separator + props.get("snp_gene_map_file"))
-			sp.loadSnpGeneMap(snpGeneMap)
-		}
-	}
-
-
-	void loadGPL(Properties props, Sql biomart, Map expectedProbes){
-
-		if(props.get("skip_gpl_annotation_loader").toString().toLowerCase().equals("yes")){
-			log.info "Skip processing GPL annotation file(s) ..."
-		}else{
-			GPLReader gr = new GPLReader()
-
-			File probeInfo = new File(props.get("destination_directory") + File.separator + props.get("probe_info_file"))
-			if(probeInfo.size() > 0) {
-				log.warn probeInfo.toString() + " is not empty."
-				probeInfo.delete()
-				probeInfo.createNewFile()
-			}
-			gr.setProbeInfo(probeInfo)
-
-			File snpGeneMap = new File(props.get("destination_directory") + File.separator + props.get("snp_gene_map_file"))
-			if(snpGeneMap.size() > 0) {
-				log.warn snpGeneMap.toString() + " is not empty."
-				snpGeneMap.delete()
-				snpGeneMap.createNewFile()
-			}
-			gr.setSnpGeneMap(snpGeneMap)
-
-
-			File snpMap = new File(props.get("destination_directory") + File.separator + props.get("snp_map_file"))
-			if(snpMap.size() > 0) {
-				log.warn snpMap.toString() + " is not empty."
-				snpMap.delete()
-				snpMap.createNewFile()
-			}
-			gr.setSnpMap(snpMap)
-
-			gr.setSourceDirectory(props.get("source_directory"))
-			gr.setSql(biomart)
-			gr.setExpectedProbes(expectedProbes)
-			gr.processGPLs(props.get("input_file"))
-		}
-	}
-
-
-	void loadAffymetrix(Properties props, Sql biomart){
-
+        //TODO: not ported; not working
 		if(props.get("skip_gx_annotation_loader").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading Affymetrix GX annotation file(s) ..."
+			log.info "Skip loading Affymetrix GX annotation file(s)"
 		}else{
 
 			File annotationSource = new File(props.get("annotation_source"))
@@ -184,7 +173,7 @@ class AnnotationLoader {
 			a.setAnnotationTable(props.get("annotation_table"))
 
 			if(props.get("recreate_annotation_table").toString().toLowerCase().equals("yes")){
-				log.info "Start recreating annotation table ${props.get("annotation_table")} for Affymetrix GX annotation file(s) ..."
+				log.info "Start recreating annotation table ${props.get("annotation_table")} for Affymetrix GX annotation file(s)"
 				a.createAnnotationTable()
 			}
 
@@ -193,10 +182,11 @@ class AnnotationLoader {
 	}
 
 
-	void loadTaxonomy(Properties props, Sql biomart){
+	void loadTaxonomy() {
 
+        //TODO: not ported; not working
 		if(props.get("skip_taxonomy_name").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading Taxonomy name ..."
+			log.info "Skip loading Taxonomy name"
 		}else{
 			File taxonomy = new File("C:/Customers/NCBI/Taxonomy/names.dmp")
 
@@ -210,10 +200,11 @@ class AnnotationLoader {
 	}
 
 
-	void loadGeneInfo(Properties props, Sql biomart){
+	void loadGeneInfo() {
 
+        //TODO: not ported; not working
 		if(props.get("skip_gene_info").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading Gene Info ..."
+			log.info "Skip loading Gene Info"
 		}else{
 			File geneInfo = new File("C:/Customers/NCBI/Taxonomy/gene_info")
 
@@ -226,10 +217,11 @@ class AnnotationLoader {
 	}
 
 
-	void loadGxGPL(Properties props, Sql biomart){
+	void loadGxGPL() {
 
+        //TODO: not ported; not working
 		if(props.get("skip_gx_gpl_loader").toString().toLowerCase().equals("yes")){
-			log.info "Skip loading GPL GX annotation file(s) ..."
+			log.info "Skip loading GPL GX annotation file(s)"
 		}else{
 
 
@@ -238,7 +230,7 @@ class AnnotationLoader {
 			gpl.setAnnotationTable(props.get("annotation_table"))
 
 			if(props.get("recreate_annotation_table").toString().toLowerCase().equals("yes")){
-				log.info "Start recreating annotation table ${props.get("annotation_table")} for GPL GX annotation file(s) ..."
+				log.info "Start recreating annotation table ${props.get("annotation_table")} for GPL GX annotation file(s)"
 				gpl.createAnnotationTable()
 			}
 

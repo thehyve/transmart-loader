@@ -20,114 +20,99 @@
 
 package com.recomdata.pipeline.plink
 
-import java.io.File;
-
-import org.apache.log4j.Logger;
-
+import com.recomdata.pipeline.database.RDMSCompatibility
+import com.recomdata.pipeline.exception.EmptyInputFileException
+import com.recomdata.pipeline.util.Step
+import com.recomdata.pipeline.util.StepExecution
 import groovy.sql.Sql
+import org.slf4j.Logger
+
+import javax.enterprise.event.Observes
+import javax.inject.Inject
 
 class SnpGeneMap {
 
-	private static final Logger log = Logger.getLogger(SnpGeneMap)
+	@Inject Logger log
 
-	Sql deapp
-	String annotationTable
+	@Inject Sql sql
 
-	void loadSnpGeneMap(File snpGeneMap){
+    @Inject RDMSCompatibility rdmsCompatibility
 
-		createTempSnpGeneMapTable("tmp_de_snp_gene_map")
+	void loadSnpGeneMap(@Observes @Step('loadSnpGeneMap_file') StepExecution stepParams) {
+        /** see {@link com.recomdata.pipeline.annotation.AnnotationLoader#loadSnpGeneMap()} */
+        File snpGeneMap = stepParams['snpGeneMapFile']
+
+        def tempTable = 'tmp_de_snp_gene_map'
+
+        rdmsCompatibility.createTemporaryTable tempTable, 'deapp.de_snp_gene_map'
 
 		// store unique set of SNP ID -> Gene ID
-		Map rs = [:]
-		if(snpGeneMap.size() >0){
-			log.info("Start loading " + snpGeneMap.toString() + " into DE_SNP_GENE_MAP ...")
-			snpGeneMap.eachLine{
-				String [] str = it.split(/\t/)
-				rs[str[0]] = str[1]
-			}
-		}else{
-			log.error(snpGeneMap.toString() + " is empty.")
-		}
+		if (snpGeneMap.size() == 0) {
+            throw new EmptyInputFileException("File $snpGeneMap is empty")
+        }
 
+        log.info 'Start loading {} into DE_SNP_GENE_MAP...', snpGeneMap
 
-		String qry = """ insert into tmp_de_snp_gene_map(entrez_gene_id, snp_id, snp_name)
+        String qry = """ insert into $tempTable(entrez_gene_id, snp_id, snp_name)
 							 select ?, snp_info_id, ?
-							 from de_snp_info where name=? """
-		if(snpGeneMap.size() > 0){
-			deapp.withTransaction {
-				deapp.withBatch(qry, {stmt ->
-					rs.each{k, v ->
-						stmt.addBatch([v, k, k])
-					}
-				})
-			}
-		}
+							 from deapp.de_snp_info where name=? """
+        sql.withTransaction {
+            sql.withBatch(qry, {stmt ->
+                snpGeneMap.eachLine {
+                    String[] str = it.split(/\t/)
+                    stmt.addBatch([str[1] as Long, str[0], str[0]])
+                }
+            })
+        }
+        rdmsCompatibility.analyzeTable tempTable
 
-		loadSnpGeneMap("tmp_de_snp_gene_map")
-
-		log.info "Drop the temp table TMP_DE_SNP_GENE_MAP "
-		qry = " drop table tmp_de_snp_gene_map purge"
-		deapp.execute(qry)
+		loadSnpGeneMap tempTable
 	}
 
 	
-	void loadSnpGeneMap(String tmpSnpGeneMapTable){
+	void loadSnpGeneMap(String tmpSnpGeneMapTable) {
 
-		log.info "Start loading data into the table DE_SNP_GENE_MAP ... "
+		log.info "Start loading data into the table DE_SNP_GENE_MAP"
 
-		String qry = """insert into de_snp_gene_map nologging (snp_id, snp_name, entrez_gene_id)
-						select t2.snp_info_id, t1.snp_name, t1.entrez_gene_id
-						from $tmpSnpGeneMapTable t1, de_snp_info t2
-						where t1.snp_name = t2.name 
-						minus
-						select snp_id, snp_name, entrez_gene_id from de_snp_gene_map"""
-		deapp.execute(qry)
+		String qry = """
+                INSERT INTO deapp.de_snp_gene_map (
+                    snp_id,
+                    snp_name,
+                    entrez_gene_id )
+                SELECT
+                    t2.snp_info_id,
+                    t1.snp_name,
+                    t1.entrez_gene_id
+                FROM
+                    $tmpSnpGeneMapTable t1
+                    INNER JOIN deapp.de_snp_info t2 ON (t1.snp_name = t2.name)
+                ${rdmsCompatibility.complementOperator}
+                SELECT
+                    snp_id,
+                    snp_name,
+                    entrez_gene_id
+                FROM
+                    deapp.de_snp_gene_map"""
+		def affected = sql.executeUpdate(qry)
 
-		log.info "End loading data into the table DE_SNP_GENE_MAP ... "
+		log.info "End loading data into the table DE_SNP_GENE_MAP ({} rows)", affected
 	}
 
 
-	void loadSnpGeneMap(Map columnMap){
-
-		log.info "Start loading data into the table DE_SNP_GENE_MAP ... "
-
-		String qry = """insert into de_snp_gene_map nologging (snp_id, snp_name, entrez_gene_id)
-						select t2.snp_info_id, t1.${columnMap["probe"]}, t1.${columnMap["gene_id"]}
-						from $annotationTable t1, de_snp_info t2
-						where t1.${columnMap["probe"]} = t2.name and t1.${columnMap["gene_id"]} not like '---%'
-                        minus
-						select snp_id, snp_name, to_char(entrez_gene_id) from de_snp_gene_map"""
-		deapp.execute(qry)
-
-		log.info "End loading data into the table DE_SNP_GENE_MAP ... "
-	}
-
-
-	void createTempSnpGeneMapTable(String tempSnpGeneMapTable){
-
-		String qry = "select count(1) from user_tables where table_name=upper(?)"
-		if(deapp.firstRow(qry, [tempSnpGeneMapTable])[0] > 0){
-			log.info "Drop table $tempSnpGeneMapTable ..."
-			qry = "drop table $tempSnpGeneMapTable purge"
-			deapp.execute(qry)
-		}
-
-		log.info "Start creating the temp table $tempSnpGeneMapTable ..."
-
-		qry = """ create table tmp_de_snp_gene_map as select * from de_snp_gene_map where 1=2 """
-		deapp.execute(qry)
-
-		log.info "End creating table $tempSnpGeneMapTable ..."
-	}
-
-
-	void setAnnotationTable(String annotationTable){
-		this.annotationTable = annotationTable
-	}
-
-
-	void setDeapp(Sql deapp){
-		this.deapp = deapp
-	}
+// TODO: Refactor with loadSnpGeneMap(String); annotationTable used to a prop
+//	void loadSnpGeneMap(Map columnMap){
+//
+//		log.info "Start loading data into the table DE_SNP_GENE_MAP ... "
+//
+//		String qry = """insert into de_snp_gene_map nologging (snp_id, snp_name, entrez_gene_id)
+//						select t2.snp_info_id, t1.${columnMap["probe"]}, t1.${columnMap["gene_id"]}
+//						from $annotationTable t1, de_snp_info t2
+//						where t1.${columnMap["probe"]} = t2.name and t1.${columnMap["gene_id"]} not like '---%'
+//                        minus
+//						select snp_id, snp_name, to_char(entrez_gene_id) from de_snp_gene_map"""
+//		sql.execute(qry)
+//
+//		log.info "End loading data into the table DE_SNP_GENE_MAP ... "
+//	}
 
 }

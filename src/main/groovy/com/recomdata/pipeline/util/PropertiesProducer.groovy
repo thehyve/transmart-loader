@@ -33,6 +33,10 @@ class PropertiesProducer {
         FileRef fileAnnotation = injectionPoint.qualifiers.find { it instanceof FileRef }
         def location = fileAnnotation.value()
 
+        doProduceProperties(location)
+    }
+
+    synchronized Properties doProduceProperties(String location) {
         if (!cachedProperties.containsKey(location)) {
             Properties properties = new Properties()
             Properties.metaClass.getAsBoolean = { String key ->
@@ -55,7 +59,7 @@ class PropertiesProducer {
                 inputStream = file.newInputStream()
             }
 
-            cachedProperties[fileAnnotation.value()] =
+            cachedProperties[location] =
                 inputStream.withStream {
                     properties.load it
                     properties
@@ -64,7 +68,7 @@ class PropertiesProducer {
             log.debug 'Returning cached instance for file reference {}', location
         }
 
-        cachedProperties[fileAnnotation.value()]
+        cachedProperties[location]
     }
 
 }

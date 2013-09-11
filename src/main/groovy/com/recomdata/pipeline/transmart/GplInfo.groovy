@@ -20,70 +20,59 @@
 
 package com.recomdata.pipeline.transmart
 
-import java.util.Map;
+import com.recomdata.pipeline.util.Step
+import com.recomdata.pipeline.util.StepExecution
+import groovy.sql.Sql
+import org.slf4j.Logger
 
-import org.apache.log4j.Logger;
-
-import groovy.sql.Sql;
-
-import com.recomdata.pipeline.util.Util
-
+import javax.enterprise.event.Observes
+import javax.inject.Inject
+import java.sql.Timestamp
 
 class GplInfo {
 
-	private static final Logger log = Logger.getLogger(GplInfo)
+    @Inject Logger log
 
-	Sql deapp
+	@Inject Sql sql
 
-	void insertGplInfo(String platform, String title, String organism, String markerType){
 
-		String qry = "insert into de_gpl_info(platform,title,organism,annotation_date,marker_type) values(?,?,?,sysdate,?)"
+    void insertGplInfo(@Observes @Step('insertGplInfo') StepExecution stepParams) {
+        insertGplInfo(stepParams.params)
+    }
 
-		if(isGplInfoExist(platform, markerType)){
-			log.info "$platform:$markerType already exists in DE_GPL_INFO ..."
-		}else{
-			log.info "Insert $platform:$markerType into DE_GPL_INFO ..."
-			deapp.execute(qry, [
-				platform,
-				title,
-				organism,
-				markerType
-			])
+// TODO: implement this variant or change caller
+//    void insertGplInfo(String platform, String title, String organism, String markerType) {
+//        ...
+//    }
+
+	void insertGplInfo(Map data) {
+
+		log.info "Start inserting data into DE_GPL_INFO"
+
+		if (gplInfoExist(data["platform"], data["markerType"])) {
+			log.info "Platform {} already exists in DE_GPL_INFO", data["platform"]
+            return
 		}
+
+        String qry = """insert into deapp.de_gpl_info (
+                platform, title, organism, annotation_date, marker_type, release_nbr)
+                values(?, ?, ?, ?, ?, ?) """
+        sql.execute(qry, [
+                data["platform"],
+                data["title"],
+                data["organism"],
+                data["annotationDate"] ?: new Timestamp(System.currentTimeMillis()),
+                data["markerType"],
+                data["releaseNbr"]
+        ])
+
+        log.info "Inserted platform {} inserted into DE_GPL_INFO", data["platform"]
 	}
 
 
-	void insertGplInfo(Map gplInfoMap){
-
-		log.info "Start inserting data into DE_GPL_INFO ... "
-
-		if(isGplInfoExist(gplInfoMap["platform"], gplInfoMap["markerType"])){
-			log.info "Platform [${gplInfoMap["platform"]}] already extists in DE_GPL_INFO ... "
-		}else{
-			String qry = """insert into de_gpl_info (platform, title, organism, annotation_date, marker_type, release_nbr) values(?, ?, ?, ?, ?,?) """
-			deapp.execute(qry, [
-				gplInfoMap["platform"],
-				gplInfoMap["title"],
-				gplInfoMap["organism"],
-				gplInfoMap["annotationDate"],
-				gplInfoMap["markerType"],
-				gplInfoMap["releaseNbr"]
-			])
-			log.info "Platform ${gplInfoMap["platform"]} is inserted into DE_GPL_INFO ... "
-		}
-		log.info "End loading data into the table DE_SNP_INFO ... "
-	}
-
-
-	boolean isGplInfoExist(String platform, String markerType){
-		String qry = "select count(*) from de_gpl_info where platform=? and marker_type=?"
-		def res = deapp.firstRow(qry, [platform, markerType])
-		if(res[0] > 0) return true
-		else return false
-	}
-
-
-	void setDeapp(Sql deapp){
-		this.deapp = deapp
+	boolean gplInfoExist(String platform, String markerType) {
+		String qry = "select count(*) from deapp.de_gpl_info where platform = ? and marker_type = ?"
+		def res = sql.firstRow(qry, [platform, markerType])
+        return res[0] > 0
 	}
 }
