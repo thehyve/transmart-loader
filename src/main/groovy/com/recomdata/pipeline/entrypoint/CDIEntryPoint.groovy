@@ -6,11 +6,13 @@ import org.slf4j.Logger
 
 import javax.enterprise.context.ApplicationScoped
 import javax.enterprise.event.Event
+import javax.enterprise.event.ObserverException
 import javax.enterprise.event.Observes
 import javax.enterprise.inject.Any
 import javax.enterprise.util.AnnotationLiteral
 import javax.inject.Inject
 import java.lang.annotation.Annotation
+import java.sql.BatchUpdateException
 
 /**
  * A class that serves as a entry point when the application is started using
@@ -45,9 +47,21 @@ class CDIEntryPoint {
 
         logger.debug("Will now launch pipeline {}", pipelineName)
 
-        startPipelineEvent.
-                select(getPipelineQualifier(pipelineName)).
-                fire parameters.drop(1)
+        try {
+            startPipelineEvent.
+                    select(getPipelineQualifier(pipelineName)).
+                    fire parameters.drop(1)
+        } catch (ObserverException oe) {
+            if (oe.cause instanceof BatchUpdateException) {
+                /* show the cause of the exception and retrow */
+                if (oe.cause.nextException) {
+                    logger.error 'Got a BatchUpdateException. ' +
+                            '"Next exception" follows', oe.cause.nextException
+                }
+            }
+
+            throw oe
+        }
     }
 
     private Annotation getPipelineQualifier(String pipelineName) {
