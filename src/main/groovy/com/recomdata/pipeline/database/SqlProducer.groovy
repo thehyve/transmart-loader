@@ -39,6 +39,7 @@ class SqlProducer {
     @PreDestroy
     void destroy() {
         if (sql) {
+            sql.commit()
             sql.close()
         }
     }
