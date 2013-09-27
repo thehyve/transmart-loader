@@ -3,7 +3,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.recomdata</groupId>
+    <groupId>org.transmartproject</groupId>
     <artifactId>loader</artifactId>
     <name>TranSMART data loader</name>
     <version>1.0-SNAPSHOT</version>
@@ -209,7 +209,7 @@
         <postgresql.jdbc.version>9.2-1003-jdbc4</postgresql.jdbc.version>
         <gmavenProviderSelection>2.0</gmavenProviderSelection>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main.class>com.recomdata.pipeline.converter.Converter</main.class>
+        <main.class>org.transmartproject.pipeline.converter.Converter</main.class>
     </properties>
 
 </project>

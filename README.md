@@ -54,22 +54,22 @@ How to Run
 After you modify your configuration file properly, use the entry points in the
 following classes:
 
-  * MeSH: `com.recomdata.pipeline.disease.MeSH`
+  * MeSH: `org.transmartproject.pipeline.disease.MeSH`
 
-  * Observation: `com.recomdata.pipeline.observation.Observation`
+  * Observation: `org.transmartproject.pipeline.observation.Observation`
 
   * Pathway:
-	* `com.recomdata.pipeline.pathway.GeneOntology`
-	* `com.recomdata.pipeline.pathway.Ingenuity`
-	* `com.recomdata.pipeline.pathway.KEGG`
+	* `org.transmartproject.pipeline.pathway.GeneOntology`
+	* `org.transmartproject.pipeline.pathway.Ingenuity`
+	* `org.transmartproject.pipeline.pathway.KEGG`
 
   * SNP:
-	1. `com.recomdata.converter.SNPFormatter`
-	2. `com.recomdata.pipeline.plink.PlinkLoader`
+	1. `org.transmartproject.converter.SNPFormatter`
+	2. `org.transmartproject.pipeline.plink.PlinkLoader`
 
-  * Annotation: `com.recomdata.pipeline.annotation.AnnotationLoader`
+  * Annotation: `org.transmartproject.pipeline.annotation.AnnotationLoader`
 
-  * Omicsoft: `com.recomdata.pipeline.omicsoft.OmicsoftLoader`
+  * Omicsoft: `org.transmartproject.pipeline.omicsoft.OmicsoftLoader`
 
 The command would look like `java -jar target/loader-jar-with-dependencies.jar
 <classname>`.
