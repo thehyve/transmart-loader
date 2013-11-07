@@ -10,37 +10,45 @@ import org.transmartproject.pipeline.util.Util
  *  adds it to BIOMART.BIO_MARKER.
  */
 class MiRBaseDictionary {
-    private static final Logger log = Logger.getLogger(BioMarker)
+    private static final Logger log = Logger.getLogger(MiRBaseDictionary)
 
-    Sql sqlBiomart;
-
-    MiRBaseDictionary() {
-        log.info("Start loading property file ...")
-        Properties props = Util.loadConfiguration("conf/Pathway.properties")
-        sqlBiomart = Util.createSqlFromPropertyFile(props, "biomart")
-    }
+    Sql sqlBiomart
 
     static main(args) {
+        if(!args) {
+            println "MiRBaseDictionary <miRNA.dat>"
+            System.exit(1)
+        }
+
+        def miRNAFileLocation = args[0]
+
         PropertyConfigurator.configure("conf/log4j.properties");
-        File miRNAFile = new File('miRNA.dat')
+        println args
+        File miRNAFile = new File(miRNAFileLocation)
         MiRBaseDictionary dict = new MiRBaseDictionary()
         dict.loadData(miRNAFile)
     }
 
-    void loadData(File miRNAFile){
-        if(miRNAFile.size()>0){
+    void loadData(File miRNAFile) {
+        if (!miRNAFile.exists()) {
+            log.error("File is not found: ${miRNAFile.getAbsolutePath()}")
+            return
+        }
+
+        log.info("Start loading property file ...")
+        Properties props = Util.loadConfiguration('')
+        sqlBiomart = Util.createSqlFromPropertyFile(props, "biomart")
+        try {
             def miRBaseEntry = [:]
 
             miRNAFile.eachLine {
-
                 if (it.startsWith("//")) {
                     // Insert the current instance and start a new one
-                    if (miRBaseEntry["organism"] != null) {
+                    if (miRBaseEntry["organism"] && miRBaseEntry["entrezgene"]) {
                         insertMiRBase(miRBaseEntry)
                     }
                     miRBaseEntry = [:]
-                }
-                else if (it.startsWith("ID")) {
+                } else if (it.startsWith("ID")) {
                     String[] str = it.substring(5).split(" ")
                     miRBaseEntry["id"] = str[0]
                     if (it.contains("; MMU; ")) {
@@ -52,35 +60,33 @@ class MiRBaseDictionary {
                     if (it.contains("; HSA; ")) {
                         miRBaseEntry["organism"] = "HOMO SAPIENS"
                     }
-                }
-                else if (it.startsWith("DE")) {
+                } else if (it.startsWith("DE")) {
                     String str = it.substring(5)
                     miRBaseEntry["description"] = str
-                }
-                else if (it.startsWith("DR")) {
+                } else if (it.startsWith("DR")) {
                     if (it.contains("ENTREZGENE")) {
                         String[] str = it.split("; ")
                         String code = str[-1]
                         if (code.endsWith('.')) {
                             code = code[0..-2]
                         }
-                        miRBaseEntry["entrezgene"] = code
+                        miRBaseEntry["entrezgene"] = code.toUpperCase()
+                        miRBaseEntry["source"] = 'Entrez'
+                        miRBaseEntry["extId"] = str[1]
                     }
                 }
             }
-
-        }
-        else {
-            log.info "Cannot find " + miRNAFile.toString()
+        } finally {
+            sqlBiomart.close()
         }
     }
 
-    void insertMiRBase(miRBaseEntry){
+    protected void insertMiRBase(miRBaseEntry){
         def geneSymbol = miRBaseEntry["entrezgene"]
         def description = miRBaseEntry["description"]
         def organism = miRBaseEntry["organism"]
-        def source_code = "miRBase"
-        def external_id = miRBaseEntry["id"]
+        def source_code = miRBaseEntry["source"]
+        def external_id = miRBaseEntry["extId"]
         def markerType = "MIRNA"
 
 
@@ -96,7 +102,7 @@ class MiRBaseDictionary {
         else {
 
             log.info "Insert $organism:$geneSymbol:$external_id:$markerType into BIO_MARKER ..."
-            sqlBiomart.execute(qry, [
+            sqlBiomart.executeInsert(qry, [
                     geneSymbol,
                     description,
                     organism,
@@ -109,12 +115,11 @@ class MiRBaseDictionary {
 
     }
 
-    boolean isBioMarkerExist(String geneId, String markerType, String organism){
+    protected boolean isBioMarkerExist(String geneId, String markerType, String organism){
         String qry = "select count(*) from bio_marker where primary_external_id=? and organism=? and bio_marker_type=?"
         def res = sqlBiomart.firstRow(qry, [geneId, organism, markerType])
         if(res[0] > 0) return true
         else return false
     }
-
 
 }

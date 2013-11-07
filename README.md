@@ -73,3 +73,16 @@ following classes:
 
 The command would look like `java -jar target/loader-jar-with-dependencies.jar
 <classname>`.
+
+Oracle
+---------------
+Add to pom.xml new dependency:
+`
+<dependency>
+    <groupId>ojdbc</groupId>
+    <artifactId>ojdbc</artifactId>
+    <version>14</version>
+</dependency>
+`
+Install to local maven repository
+mvn install:install-file -DgroupId=ojdbc -DartifactId=ojdbc -Dversion=14 -Dpackaging=jar -Dfile=lib/ojdbc14.jar -DgeneratePom=true
