@@ -18,7 +18,7 @@ class DictionaryLoader {
     Sql sqlBiomart
     Sql sqlSearchApp
 
-    private DictionaryLoader() {
+    public DictionaryLoader() {
         log.info("Start loading property file ...")
         Properties props = Util.loadConfiguration('')
         sqlBiomart = Util.createSqlFromPropertyFile(props, "biomart")
@@ -38,14 +38,13 @@ class DictionaryLoader {
         bioMarker.setBiomart(sqlBiomart)
         if (bioMarker.isBioMarkerExist(bmEntry.externalID, bmEntry.markerType)) {
             log.info "$bmEntry.organism:$bmEntry.symbol:$bmEntry.externalID:$bmEntry.markerType already exists in BIO_MARKER ..."
-        }
-        else {
+        } else {
             // Insert into BIO_MARKER
             bioMarker.insertBioMarker(bmEntry.symbol,
-                                      bmEntry.description,
-                                      bmEntry.externalID,
-                                      bmEntry.source,
-                                      bmEntry.markerType)
+                    bmEntry.description,
+                    bmEntry.externalID,
+                    bmEntry.source,
+                    bmEntry.markerType)
         }
         // Determine the id of the existing/inserted biomarker
         long bioMarkerID = bioMarker.getBioMarkerID(bmEntry.externalID,
@@ -57,8 +56,7 @@ class DictionaryLoader {
         searchKeyword.setSearchapp(sqlSearchApp)
         if (searchKeyword.isSearchKeywordExist(bmEntry.symbol, bmEntry.markerType, bioMarkerID)) {
             log.info "$bmEntry.symbol:$bmEntry.markerType:$bioMarkerID already exists in SEARCH_KEYWORD ..."
-        }
-        else {
+        } else {
             // Insert into SEARCH_KEYWORD
             searchKeyword.insertSearchKeyword(bmEntry.symbol, bioMarkerID,
                     bmEntry.externalID, bmEntry.source, bmEntry.markerType, bmEntry.displayCategory)
@@ -87,23 +85,21 @@ class DictionaryLoader {
         bioDataExtCode.setBiomart(sqlBiomart)
         if (bioDataExtCode.isBioDataExtCodeExist(bioMarkerID, synonym)) {
             log.info("$bioMarkerID:$synonym already exists in BIO_DATA_EXT_CODE")
-        }
-        else {
+        } else {
             log.info "Insert $bioMarkerID:$synonym:SYNONYM:BIO_MARKER.MIRNA:Alias into BIO_DATA_EXT_CODE ..."
             bioDataExtCode.insertBioDataExtCode(bioMarkerID, synonym, 'MIRNA')
         }
-        
+
         // Insert into SEARCH_KEYWORD_TERM
         SearchKeywordTerm searchKeywordTerm = new SearchKeywordTerm()
         searchKeywordTerm.setSearchapp(sqlSearchApp)
         if (searchKeywordTerm.isSearchKeywordTermExist(synonym, bioMarkerID)) {
             log.info "$bioMarkerID:$synonym already exists in SEARCH_KEYWORD_TERM"
-        }
-        else {
+        } else {
             log.info "Insert $bioMarkerID:$synonym into SEARCH_KEYWORD_TERM"
             searchKeywordTerm.insertSearchKeywordTerm(synonym, searchKeywordID, 2)
         }
-        
+
     }
 
 }

@@ -1,10 +1,7 @@
 package org.transmartproject.pipeline.dictionary
 
-import groovy.sql.GroovyRowResult
-import groovy.sql.Sql
 import org.apache.log4j.Logger
 import org.apache.log4j.PropertyConfigurator
-import org.transmartproject.pipeline.util.Util
 
 /** Extracts miRNA data from file miRNA.dat (http://mirbase.org/ftp.shtml) and
  *  adds it to BIOMART.BIO_MARKER.
