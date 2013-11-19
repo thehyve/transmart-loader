@@ -50,35 +50,30 @@ class SearchKeywordTerm {
 
 
 
-    void insertSearchKeywordTerm(String keyword, long searchKeywordId) {
+    void insertSearchKeywordTerm(String keywordTerm, long searchKeywordId, int rank) {
+        String qry = """ insert into search_keyword_term(keyword_term, search_keyword_id, rank, term_length)
+                         values(?, ?, ?, length(?)) """
 
-        String qry = """ insert into search_keyword_term(keyword_term,search_keyword_id,rank,term_length) values(?, ?, ?, length(?)) """
-
-        if (isSearchKeywordTermExist(keyword, dataCategory)) {
-            log.info "$keyword:$dataCategory already exists in SEARCH_KERYWORD_TERM ..."
+        if (isSearchKeywordTermExist(keywordTerm, searchKeywordId)) {
+            log.info "$keywordTerm:$searchKeywordId already exists in SEARCH_KERYWORD_TERM ..."
         } else {
-            log.info "Insert $keyword:$dataCategory into SEARCH_KERYWORD_TERM ..."
+            log.info "Insert $keywordTerm:$searchKeywordId into SEARCH_KERYWORD_TERM ..."
             searchapp.execute(qry, [
-                    keyword,
+                    keywordTerm,
                     searchKeywordId,
-                    1,
-                    keyword
+                    rank,
+                    keywordTerm
             ])
         }
     }
 
 
-    boolean isSearchKeywordTermExist(String keyword, String dataCategory) {
+    boolean isSearchKeywordTermExist(String keywordTerm, long searchKeywordId) {
         String qry = """ select count(*) from search_keyword_term
-		                 where search_keyword_id in
-							  (select search_keyword_id from search_keyword
-		                       where keyword=? and data_category=?)"""
-        def res = searchapp.firstRow(qry, [keyword, dataCategory])
-        if (res[0] > 0) {
-            return true
-        } else {
-            return false
-        }
+		                 where keyword_term=? and search_keyword_id=?"""
+        def res = searchapp.firstRow(qry, [keywordTerm, searchKeywordId])
+        int count = res[0]
+        return count > 0
     }
 
 
