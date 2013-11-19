@@ -1,10 +1,10 @@
-package org.transmartproject.pipeline.transmart
+package org.transmartproject.pipeline.dictionary
 
+import groovy.sql.GroovyRowResult
 import groovy.sql.Sql
 import org.apache.log4j.Logger
 import org.apache.log4j.PropertyConfigurator
 import org.transmartproject.pipeline.util.Util
-
 
 /** Extracts miRNA data from file miRNA.dat (http://mirbase.org/ftp.shtml) and
  *  adds it to BIOMART.BIO_MARKER.
@@ -13,9 +13,10 @@ class MiRBaseDictionary {
     private static final Logger log = Logger.getLogger(MiRBaseDictionary)
 
     Sql sqlBiomart
+    Sql sqlSearchApp
 
     static main(args) {
-        if(!args) {
+        if (!args) {
             println "MiRBaseDictionary <miRNA.dat>"
             System.exit(1)
         }
@@ -38,6 +39,7 @@ class MiRBaseDictionary {
         log.info("Start loading property file ...")
         Properties props = Util.loadConfiguration('')
         sqlBiomart = Util.createSqlFromPropertyFile(props, "biomart")
+        sqlSearchApp = Util.createSqlFromPropertyFile(props, "searchapp")
         try {
             def miRBaseEntry = [:]
 
@@ -81,29 +83,36 @@ class MiRBaseDictionary {
         }
     }
 
-    protected void insertMiRBase(miRBaseEntry){
-        def geneSymbol = miRBaseEntry["entrezgene"]
+    protected void insertMiRBase(miRBaseEntry) {
+        def symbol = miRBaseEntry["entrezgene"]
         def description = miRBaseEntry["description"]
         def organism = miRBaseEntry["organism"]
         def source_code = miRBaseEntry["source"]
-        def external_id = miRBaseEntry["extId"]
+        def external_id = miRBaseEntry["id"]
         def markerType = "MIRNA"
+        String synonym = miRBaseEntry["id"];
 
 
-        log.info "Insert $organism:$geneSymbol:$external_id:$markerType into BIO_MARKER ..."
+        if (isBioMarkerExist(external_id, markerType, organism)) {
+            log.info "$organism:$symbol:$external_id:$markerType already exists in BIO_MARKER ..."
 
+            // Retrieve its id
+            String qry = "select bio_marker_id from bio_marker where primary_external_id=? and organism=? and bio_marker_type=?"
+            GroovyRowResult rowResult = sqlBiomart.firstRow(qry, [external_id, organism, markerType])
+            String bioMarkerID = rowResult[0]
 
-        String qry = """ insert into bio_marker(bio_marker_name, bio_marker_description, organism,
+            // Insert synonyms
+            insertSynonyms(bioMarkerID, synonym, symbol);
+
+        } else {
+
+            // Insert into BIO_MARKER
+            log.info "Insert $organism:$symbol:$external_id:$markerType into BIO_MARKER ..."
+            String qry = """ insert into bio_marker(bio_marker_name, bio_marker_description, organism,
                                 primary_source_code, primary_external_id, bio_marker_type)
                                 values(?, ?, ?, ?, ?, ?) """
-        if (isBioMarkerExist(external_id, markerType, organism)) {
-            log.info "$organism:$geneSymbol:$external_id:$markerType already exists in BIO_MARKER ..."
-        }
-        else {
-
-            log.info "Insert $organism:$geneSymbol:$external_id:$markerType into BIO_MARKER ..."
-            sqlBiomart.executeInsert(qry, [
-                    geneSymbol,
+            List<List<Object>> ids = sqlBiomart.executeInsert(qry, [
+                    symbol,
                     description,
                     organism,
                     source_code,
@@ -111,15 +120,44 @@ class MiRBaseDictionary {
                     markerType,
             ])
 
+            // Retrieve the last SEQ_BIO_DATA_ID, which is the BIO_MARKER_ID used for
+            // the inserted row in BIO_MARKER
+            GroovyRowResult rowResult = sqlBiomart.firstRow(""" SELECT SEQ_BIO_DATA_ID.CURRVAL FROM DUAL """)
+            Object bioMarkerID = rowResult.getProperty("CURRVAL")
+
+            // Insert synonyms
+            insertSynonyms(bioMarkerID, synonym, symbol);
+
         }
 
     }
 
-    protected boolean isBioMarkerExist(String geneId, String markerType, String organism){
+    private void insertSynonyms(bioMarkerID, synonym, symbol) {
+        String qry = "select count(*) from BIO_DATA_EXT_CODE where BIO_DATA_ID=? and CODE=?"
+        GroovyRowResult res = sqlBiomart.firstRow(qry, [bioMarkerID, synonym])
+        int count = res[0]
+
+        if (count == 0) {
+            log.info "Insert $bioMarkerID:$synonym:SYNONYM:BIO_MARKER.MIRNA:Alias into BIO_DATA_EXT_CODE ..."
+            sqlBiomart.executeInsert("""
+                insert into BIO_DATA_EXT_CODE(BIO_DATA_ID, CODE, CODE_TYPE, BIO_DATA_TYPE, CODE_SOURCE)
+                  values(:bio_data_id, :code, :code_type, :bio_data_type, :code_source)
+                """,
+                    [bio_data_id: bioMarkerID,
+                            code: synonym,
+                            code_type: 'SYNONYM',
+                            bio_data_type: 'BIO_MARKER.MIRNA',
+                            code_source: 'Alias'])
+        } else {
+            log.info("$bioMarkerID:$synonym already exists in BIO_DATA_EXT_CODE");
+        }
+    }
+
+    protected boolean isBioMarkerExist(String geneId, String markerType, String organism) {
         String qry = "select count(*) from bio_marker where primary_external_id=? and organism=? and bio_marker_type=?"
-        def res = sqlBiomart.firstRow(qry, [geneId, organism, markerType])
-        if(res[0] > 0) return true
-        else return false
+        GroovyRowResult res = sqlBiomart.firstRow(qry, [geneId, organism, markerType])
+        int count = res[0]
+        return (count > 0)
     }
 
 }
