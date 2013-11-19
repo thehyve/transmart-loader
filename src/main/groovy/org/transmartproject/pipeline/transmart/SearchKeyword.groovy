@@ -20,11 +20,11 @@
 
 package org.transmartproject.pipeline.transmart
 
+import groovy.sql.GroovyRowResult
 import org.apache.log4j.Logger;
 
 import groovy.sql.Sql;
 
-import org.transmartproject.pipeline.util.Util
 
 
 class SearchKeyword {
@@ -32,7 +32,6 @@ class SearchKeyword {
 	private static final Logger log = Logger.getLogger(SearchKeyword)
 
 	Sql searchapp
-	String dataCategory, sourceCode, displayDataCategory
 
 	/**
 	 *   could come from either de_pathway or bio_marker 
@@ -161,7 +160,8 @@ class SearchKeyword {
 	}
 
 	
-	void insertSearchKeyword(String keyword, long bioDataId, String externalId){
+	void insertSearchKeyword(String keyword, long bioDataId, String externalId,
+                             String sourceCode, String dataCategory, String displayDataCategory){
 
 		String uniqueId = ""
 		String qry = """ insert into search_keyword (keyword, bio_data_id, unique_id, data_category,
@@ -186,16 +186,24 @@ class SearchKeyword {
 	}
 
 
-	boolean isSearchKeywordExist(String keyword){
+	boolean isSearchKeywordExist(String keyword, String dataCategory){
 		String qry = "select count(*) from search_keyword where keyword=? and data_category=?"
-		def res = searchapp.firstRow(qry, [keyword, dataCategory])
-		if(res[0] > 0) return true
-		else return false
+		GroovyRowResult rowResult = searchapp.firstRow(qry, [keyword, dataCategory])
+		int count = rowResult[0]
+        return count > 0
 	}
 
 
-	long getSearchKeywordId(String keyword){
-		String qry = """ select search_keyword_id from search_keyword 
+    boolean isSearchKeywordExist(String keyword, String dataCategory, long bioMarkerID) {
+        String qry = "select count(*) from search_keyword where keyword=? and data_category=? and bio_data_id=?"
+        GroovyRowResult rowResult = searchapp.firstRow(qry, [keyword, dataCategory, bioMarkerID])
+        int count = rowResult[0]
+        return count > 0
+    }
+
+
+	long getSearchKeywordId(String keyword, String dataCategory){
+		String qry = """ select search_keyword_id from search_keyword
 						 where keyword=? and data_category=? """
 		def res = searchapp.firstRow(qry, [keyword, dataCategory])
 		if(res.equals(null)) return 0
@@ -203,19 +211,13 @@ class SearchKeyword {
 	}
 
 
-	void setDisplayDataCategory(String displayDataCategory){
-		this.displayDataCategory = displayDataCategory
-	}
-
-
-	void setSourceCode(String sourceCdoe){
-		this.sourceCode = sourceCdoe
-	}
-
-
-	void setDataCategory(String dataCategory){
-		this.dataCategory = dataCategory
-	}
+    long getSearchKeywordId(String keyword, String dataCategory, long bioMarkerID){
+        String qry = """ select search_keyword_id from search_keyword
+						 where keyword=? and data_category=? and bio_data_id=? """
+        def res = searchapp.firstRow(qry, [keyword, dataCategory, bioMarkerID])
+        if(res.equals(null)) return 0
+        else return res[0]
+    }
 
 
 	void setSearchapp(Sql searchapp){
