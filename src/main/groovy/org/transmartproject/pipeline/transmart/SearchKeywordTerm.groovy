@@ -54,24 +54,26 @@ class SearchKeywordTerm {
         String qry = """ insert into search_keyword_term(keyword_term, search_keyword_id, rank, term_length)
                          values(?, ?, ?, length(?)) """
 
-        if (isSearchKeywordTermExist(keywordTerm, searchKeywordId)) {
-            log.info "$keywordTerm:$searchKeywordId already exists in SEARCH_KERYWORD_TERM ..."
+        String keywordTermUpper = keywordTerm.toUpperCase()
+        if (isSearchKeywordTermExist(keywordTermUpper, searchKeywordId)) {
+            log.info "$keywordTermUpper:$searchKeywordId already exists in SEARCH_KERYWORD_TERM ..."
         } else {
-            log.info "Insert $keywordTerm:$searchKeywordId into SEARCH_KERYWORD_TERM ..."
+            log.info "Insert $keywordTermUpper:$searchKeywordId into SEARCH_KERYWORD_TERM ..."
             searchapp.execute(qry, [
-                    keywordTerm,
+                    keywordTermUpper,
                     searchKeywordId,
                     rank,
-                    keywordTerm
+                    keywordTermUpper
             ])
         }
     }
 
 
     boolean isSearchKeywordTermExist(String keywordTerm, long searchKeywordId) {
+        String keywordTermUpper = keywordTerm.toUpperCase()
         String qry = """ select count(*) from search_keyword_term
 		                 where keyword_term=? and search_keyword_id=?"""
-        def res = searchapp.firstRow(qry, [keywordTerm, searchKeywordId])
+        def res = searchapp.firstRow(qry, [keywordTermUpper, searchKeywordId])
         int count = res[0]
         return count > 0
     }

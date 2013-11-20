@@ -93,12 +93,8 @@ class DictionaryLoader {
         // Insert into SEARCH_KEYWORD_TERM
         SearchKeywordTerm searchKeywordTerm = new SearchKeywordTerm()
         searchKeywordTerm.setSearchapp(sqlSearchApp)
-        if (searchKeywordTerm.isSearchKeywordTermExist(synonym, bioMarkerID)) {
-            log.info "$bioMarkerID:$synonym already exists in SEARCH_KEYWORD_TERM"
-        } else {
-            log.info "Insert $bioMarkerID:$synonym into SEARCH_KEYWORD_TERM"
-            searchKeywordTerm.insertSearchKeywordTerm(synonym, searchKeywordID, 2)
-        }
+        // check if exists and inserts if not:
+        searchKeywordTerm.insertSearchKeywordTerm(synonym, searchKeywordID, 2)
 
     }
 
