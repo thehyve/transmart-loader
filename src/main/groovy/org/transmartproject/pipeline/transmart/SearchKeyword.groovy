@@ -173,10 +173,10 @@ class SearchKeyword {
             uniqueId = dataCategory + ":" + displayDataCategory + ":" + externalId
         }
 
-        if (isSearchKeywordExist(keyword)) {
-            log.info "$keyword:$dataCategory already exists in SEARCH_KEYWORD ..."
+        if (isSearchKeywordExist(keyword, dataCategory, bioDataId)) {
+            log.info "$keyword:$dataCategory:$bioDataId already exists in SEARCH_KEYWORD ..."
         } else {
-            log.info "Insert $keyword:$dataCategory into SEARCH_KEYWORD ..."
+            log.info "Insert $keyword:$dataCategory:$bioDataId into SEARCH_KEYWORD ..."
             searchapp.execute(qry, [
                     keyword,
                     bioDataId,

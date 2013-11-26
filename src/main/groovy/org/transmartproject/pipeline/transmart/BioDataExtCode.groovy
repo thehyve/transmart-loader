@@ -71,7 +71,7 @@ class BioDataExtCode {
                 [bio_data_id: bioMarkerID,
                         code: synonym,
                         code_type: 'SYNONYM',
-                        bio_data_type: "BIO_MARKER.$dataType",
+                        bio_data_type: 'BIO_MARKER.' + dataType,
                         code_source: 'Alias'])
     }
 

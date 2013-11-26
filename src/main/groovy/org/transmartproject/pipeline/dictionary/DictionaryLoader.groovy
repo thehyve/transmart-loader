@@ -54,13 +54,9 @@ class DictionaryLoader {
         // SEARCH_KEYWORD
         SearchKeyword searchKeyword = new SearchKeyword()
         searchKeyword.setSearchapp(sqlSearchApp)
-        if (searchKeyword.isSearchKeywordExist(bmEntry.symbol, bmEntry.markerType, bioMarkerID)) {
-            log.info "$bmEntry.symbol:$bmEntry.markerType:$bioMarkerID already exists in SEARCH_KEYWORD ..."
-        } else {
-            // Insert into SEARCH_KEYWORD
-            searchKeyword.insertSearchKeyword(bmEntry.symbol, bioMarkerID,
-                    bmEntry.externalID, bmEntry.source, bmEntry.markerType, bmEntry.displayCategory)
-        }
+        // Check if it exists and insert into SEARCH_KEYWORD if not
+        searchKeyword.insertSearchKeyword(bmEntry.symbol, bioMarkerID,
+                bmEntry.externalID, bmEntry.source, bmEntry.markerType, bmEntry.displayCategory)
         // Determine the id of the keyword that was just inserted
         long searchKeywordID = searchKeyword.getSearchKeywordId(bmEntry.symbol,
                 bmEntry.markerType, bioMarkerID)
@@ -74,11 +70,11 @@ class DictionaryLoader {
 
         // Insert all synonyms from the BioMarkerEntry
         for (String synonym : bmEntry.synonyms) {
-            insertSynonyms(synonym, bioMarkerID, searchKeywordID);
+            insertSynonyms(synonym, bioMarkerID, searchKeywordID, bmEntry.markerType);
         }
     }
 
-    private void insertSynonyms(String synonym, long bioMarkerID, long searchKeywordID) {
+    private void insertSynonyms(String synonym, long bioMarkerID, long searchKeywordID, String dataCategory) {
 
         // Insert into BIO_DATA_EXT_CODE
         BioDataExtCode bioDataExtCode = new BioDataExtCode()
@@ -86,8 +82,8 @@ class DictionaryLoader {
         if (bioDataExtCode.isBioDataExtCodeExist(bioMarkerID, synonym)) {
             log.info("$bioMarkerID:$synonym already exists in BIO_DATA_EXT_CODE")
         } else {
-            log.info "Insert $bioMarkerID:$synonym:SYNONYM:BIO_MARKER.MIRNA:Alias into BIO_DATA_EXT_CODE ..."
-            bioDataExtCode.insertBioDataExtCode(bioMarkerID, synonym, 'MIRNA')
+            log.info "Insert $bioMarkerID:$synonym:SYNONYM:BIO_MARKER.$dataCategory:Alias into BIO_DATA_EXT_CODE ..."
+            bioDataExtCode.insertBioDataExtCode(bioMarkerID, synonym, dataCategory)
         }
 
         // Insert into SEARCH_KEYWORD_TERM
