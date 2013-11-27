@@ -30,6 +30,7 @@ class UniProtDictionary {
         }
 
         DictionaryLoader dictionaryLoader = new DictionaryLoader();
+        CorrelationLoader correlationLoader = new CorrelationLoader("PROTEIN TO GENE");
 
         try {
             file.eachLine(0) { line, number ->
@@ -37,8 +38,8 @@ class UniProtDictionary {
                     return // Skip the header line
                 }
 
+                // Extract and insert biomarker (including search keywords and terms)
                 BioMarkerEntry bioMarkerEntry = new BioMarkerEntry("PROTEIN", "Protein")
-
                 String[] split = line.split(";")
                 bioMarkerEntry.symbol = split[0]
                 bioMarkerEntry.description = split[2]
@@ -47,13 +48,23 @@ class UniProtDictionary {
                 bioMarkerEntry.externalID = split[0]
                 bioMarkerEntry.source = "UniProt"
                 bioMarkerEntry.organism = "HOMO SAPIENS"
+                //dictionaryLoader.insertBiomarker(bioMarkerEntry)
 
-                //println("$number:$bioMarkerEntry.symbol:$bioMarkerEntry.description")
-                dictionaryLoader.insertBiomarker(bioMarkerEntry)
+                // Extract and insert data correlation
+                CorrelationEntry correlationEntry = new CorrelationEntry()
+                correlationEntry.symbol1 = split[0]
+                correlationEntry.markerType1 = "PROTEIN"
+                correlationEntry.symbol2 = split[3]
+                correlationEntry.markerType2 = "GENE"
+                correlationEntry.organism = "HOMO SAPIENS"
+                long correlationDescriptionID = 386137297; //TODO: where to get this?
+                //correlationLoader.insertCorrelation(correlationEntry, correlationDescriptionID);
+
             }
         }
         finally {
             dictionaryLoader.close()
+            correlationLoader.close()
         }
     }
 
