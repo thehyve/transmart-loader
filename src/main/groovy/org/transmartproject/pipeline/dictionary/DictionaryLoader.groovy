@@ -60,21 +60,24 @@ class DictionaryLoader {
         // Determine the id of the keyword that was just inserted
         long searchKeywordID = searchKeyword.getSearchKeywordId(bmEntry.symbol,
                 bmEntry.markerType, bioMarkerID)
+        // SEARCH_KEYWORD_TERM (for symbol)
+        insertTermIntoSearchKeywordTerm(bmEntry.symbol, searchKeywordID)
 
-
-        // Insert synonyms (BIO_DATA_EXT_CODE and SEARCH_KEYWORD_TERM)
-        insertSynonyms(bmEntry, bioMarkerID, searchKeywordID);
+        // Insert synonyms (BIO_DATA_EXT_CODE and SEARCH_KEYWORD_TERM),
+        // linking them to the corresponding biomarker and search keyword
+        insertSynonyms(bmEntry, bioMarkerID, searchKeywordID)
     }
 
     private void insertSynonyms(BioMarkerEntry bmEntry, long bioMarkerID, long searchKeywordID) {
 
         // Insert all synonyms from the BioMarkerEntry
         for (String synonym : bmEntry.synonyms) {
-            insertSynonyms(synonym, bioMarkerID, searchKeywordID, bmEntry.markerType);
+            insertSynonymIntoBioDataExtCode(synonym, bioMarkerID, bmEntry.markerType)
+            insertTermIntoSearchKeywordTerm(synonym, searchKeywordID)
         }
     }
 
-    private void insertSynonyms(String synonym, long bioMarkerID, long searchKeywordID, String dataCategory) {
+    private void insertSynonymIntoBioDataExtCode(String synonym, long bioMarkerID, String dataCategory) {
 
         // Insert into BIO_DATA_EXT_CODE
         BioDataExtCode bioDataExtCode = new BioDataExtCode()
@@ -86,11 +89,15 @@ class DictionaryLoader {
             bioDataExtCode.insertBioDataExtCode(bioMarkerID, synonym, dataCategory)
         }
 
+    }
+
+    private void insertTermIntoSearchKeywordTerm(String keywordTerm, long searchKeywordID) {
+
         // Insert into SEARCH_KEYWORD_TERM
         SearchKeywordTerm searchKeywordTerm = new SearchKeywordTerm()
         searchKeywordTerm.setSearchapp(sqlSearchApp)
         // check if exists and inserts if not:
-        searchKeywordTerm.insertSearchKeywordTerm(synonym, searchKeywordID, 2)
+        searchKeywordTerm.insertSearchKeywordTerm(keywordTerm, searchKeywordID, 2)
 
     }
 
