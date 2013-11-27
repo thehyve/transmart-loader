@@ -120,9 +120,9 @@ class BioDataCorrelation {
 		String qry = "insert into bio_data_correlation(bio_data_id,asso_bio_data_id,bio_data_correl_descr_id) values(?,?,?)"
 
 		if(isBioDataCorrelationExist(pathwayMarkerId, geneMarkerId, dataCorrelDecrId)){
-			log.info "$pathwayMarkerId:$geneMarkerId:$dataCorrelDecrId already exists in BIO_MARKER ..."
+			log.info "$pathwayMarkerId:$geneMarkerId:$dataCorrelDecrId already exists in BIO_DATA_CORRELATION ..."
 		}else{
-			log.info "Insert $pathwayMarkerId:$geneMarkerId:$dataCorrelDecrId into BIO_MARKER ..."
+			log.info "Insert $pathwayMarkerId:$geneMarkerId:$dataCorrelDecrId into BIO_DATA_CORRELATION ..."
 			biomart.execute(qry, [
 				pathwayMarkerId,
 				geneMarkerId,
