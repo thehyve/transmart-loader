@@ -71,8 +71,13 @@ following classes:
 
   * Omicsoft: `org.transmartproject.pipeline.omicsoft.OmicsoftLoader`
 
+  * Dictionaries:
+  * `org.transmartproject.pipeline.dictionary.MiRBaseDictionary`
+  * `org.transmartproject.pipeline.dictionary.UniProtDictionary`
+
 The command would look like `java -jar target/loader-jar-with-dependencies.jar
-<classname>`.
+<classname>` or `java -cp target/loader-jar-with-dependencies.jar
+<classname>`, followed by arguments.
 
 Oracle
 ---------------
