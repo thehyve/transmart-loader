@@ -48,7 +48,7 @@ class CorrelationLoader {
             // Get the id of the inserted entry
             bioDataCorrelDescrId = bioDataCorrelDescr.getBioDataCorrelId(correlation, correlation)
         }
-        println(bioDataCorrelDescrId)
+
     }
 
     public void insertCorrelation(CorrelationEntry correlationEntry) {

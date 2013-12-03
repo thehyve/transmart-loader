@@ -30,7 +30,7 @@ class DictionaryLoader {
         sqlSearchApp.close()
     }
 
-    public void insertBiomarker(BioMarkerEntry bmEntry) {
+    public void insertEntry(BioMarkerEntry bmEntry) {
 
         // BIO_MARKER
         BioMarker bioMarker = new BioMarker()

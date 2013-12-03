@@ -38,7 +38,7 @@ class MiRBaseDictionary {
                 if (it.startsWith("//")) {
                     // Insert the current instance and start a new one
                     if (miRBaseEntry.organism && miRBaseEntry.symbol) {
-                        dictionaryLoader.insertBiomarker(miRBaseEntry)
+                        dictionaryLoader.insertEntry(miRBaseEntry)
                     }
                     miRBaseEntry = new BioMarkerEntry("MIRNA", "miRNA")
                 } else if (it.startsWith("ID")) {

@@ -38,27 +38,32 @@ class UniProtDictionary {
                     return // Skip the header line
                 }
 
-                // Extract and insert biomarker (including search keywords and terms)
-                BioMarkerEntry bioMarkerEntry = new BioMarkerEntry("PROTEIN", "Protein")
+                // Extract data
                 String[] split = line.split(";")
-                bioMarkerEntry.symbol = split[0]
-                bioMarkerEntry.description = split[2]
-                bioMarkerEntry.synonyms.add(split[1])
-                bioMarkerEntry.synonyms.add(split[2])
-                bioMarkerEntry.externalID = split[0]
+                String uniProtNumber = split[0]
+                String entryName = split[1] // symbol
+                String proteinName = split[2]
+                String geneSymbol = split[3]
+
+                // Insert biomarker (including search keywords and terms)
+                BioMarkerEntry bioMarkerEntry = new BioMarkerEntry("PROTEIN", "Protein")
+                bioMarkerEntry.symbol = entryName
+                bioMarkerEntry.description = proteinName
+                bioMarkerEntry.synonyms.add(uniProtNumber)
+                bioMarkerEntry.synonyms.add(proteinName)
+                bioMarkerEntry.externalID = uniProtNumber
                 bioMarkerEntry.source = "UniProt"
                 bioMarkerEntry.organism = "HOMO SAPIENS"
-                //dictionaryLoader.insertBiomarker(bioMarkerEntry)
+                dictionaryLoader.insertEntry(bioMarkerEntry)
 
-                // Extract and insert data correlation
+                // Insert data correlation
                 CorrelationEntry correlationEntry = new CorrelationEntry()
-                correlationEntry.symbol1 = split[0]
+                correlationEntry.symbol1 = entryName
                 correlationEntry.markerType1 = "PROTEIN"
-                correlationEntry.symbol2 = split[3]
+                correlationEntry.symbol2 = geneSymbol
                 correlationEntry.markerType2 = "GENE"
                 correlationEntry.organism = "HOMO SAPIENS"
-                long correlationDescriptionID = 386137297; //TODO: where to get this?
-                //correlationLoader.insertCorrelation(correlationEntry, correlationDescriptionID);
+                correlationLoader.insertCorrelation(correlationEntry);
 
             }
         }
