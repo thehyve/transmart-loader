@@ -163,15 +163,9 @@ class SearchKeyword {
     void insertSearchKeyword(String keyword, long bioDataId, String externalId,
                              String sourceCode, String dataCategory, String displayDataCategory) {
 
-        String uniqueId = ""
+        String uniqueId = dataCategory + ":" + externalId
         String qry = """ insert into search_keyword (keyword, bio_data_id, unique_id, data_category,
 							   source_code, display_data_category) values(?, ?, ?, ?, ?, ?) """
-
-        if (sourceCode.equals(null)) {
-            uniqueId = dataCategory + ":" + externalId
-        } else {
-            uniqueId = dataCategory + ":" + displayDataCategory + ":" + externalId
-        }
 
         if (isSearchKeywordExist(keyword, dataCategory, bioDataId)) {
             log.info "$keyword:$dataCategory:$bioDataId already exists in SEARCH_KEYWORD ..."
