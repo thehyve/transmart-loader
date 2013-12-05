@@ -14,9 +14,10 @@ class CorrelationLoader {
     Sql sqlDeapp
 
     BioDataCorrelation bioDataCorrelation
-    long bioDataCorrelDescrId
+    long bioDataCorrelDescrId1
+    long bioDataCorrelDescrId2
 
-    public CorrelationLoader(String correlation) {
+    public CorrelationLoader(String correlation1, String correlation2) {
         log.info("Start loading property file ...")
         Properties props = Util.loadConfiguration('')
         sqlBiomart = Util.createSqlFromPropertyFile(props, "biomart")
@@ -25,7 +26,7 @@ class CorrelationLoader {
         bioDataCorrelation = new BioDataCorrelation()
         bioDataCorrelation.setBiomart(sqlBiomart)
 
-        retrieveBioDataCorrelId(correlation)
+        retrieveBioDataCorrelId(correlation1, correlation2)
     }
 
     public void close() {
@@ -36,19 +37,26 @@ class CorrelationLoader {
     /** Retrieves the bioDataCorrelDescrID or inserts a new one
      *  if it doesn't exist.
      */
-    public void retrieveBioDataCorrelId(correlation) {
+    public void retrieveBioDataCorrelId(correlation1, correlation2) {
 
-        // Get data correlation description id
+        // Set up BioDataCorrelDescr
         BioDataCorrelDescr bioDataCorrelDescr = new BioDataCorrelDescr()
         bioDataCorrelDescr.setBiomart(sqlBiomart)
-        bioDataCorrelDescrId = bioDataCorrelDescr.getBioDataCorrelId(correlation, correlation)
+
+        // Get or create data correlation description ids
+        bioDataCorrelDescrId1 = getOrCreateBioDataCorrelId(bioDataCorrelDescr, correlation1)
+        bioDataCorrelDescrId2 = getOrCreateBioDataCorrelId(bioDataCorrelDescr, correlation2)
+    }
+
+    private long getOrCreateBioDataCorrelId(BioDataCorrelDescr bioDataCorrelDescr, String correlation) {
+        long bioDataCorrelDescrId = bioDataCorrelDescr.getBioDataCorrelId(correlation, correlation)
         if (bioDataCorrelDescrId == 0) {
             // Insert a new description
             bioDataCorrelDescr.insertBioDataCorrelDescr(correlation, "", correlation)
             // Get the id of the inserted entry
             bioDataCorrelDescrId = bioDataCorrelDescr.getBioDataCorrelId(correlation, correlation)
         }
-
+        return bioDataCorrelDescrId
     }
 
     public boolean insertCorrelation(CorrelationEntry correlationEntry) {
@@ -67,7 +75,8 @@ class CorrelationLoader {
 
         // Add the correlation to BIO_DATA_CORRELATION if possible
         if (bioMarkerId1 != null && bioMarkerId2 != null) {
-            bioDataCorrelation.insertBioDataCorrelation(bioMarkerId1, bioMarkerId2, bioDataCorrelDescrId)
+            bioDataCorrelation.insertBioDataCorrelation(bioMarkerId1, bioMarkerId2, bioDataCorrelDescrId1)
+            bioDataCorrelation.insertBioDataCorrelation(bioMarkerId2, bioMarkerId1, bioDataCorrelDescrId2)
             return true;
         }
         return false;

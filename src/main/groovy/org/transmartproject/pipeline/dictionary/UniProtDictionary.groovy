@@ -30,7 +30,7 @@ class UniProtDictionary {
         }
 
         DictionaryLoader dictionaryLoader = new DictionaryLoader();
-        CorrelationLoader correlationLoader = new CorrelationLoader("PROTEIN TO GENE");
+        CorrelationLoader correlationLoader = new CorrelationLoader("PROTEIN TO GENE", "GENE TO PROTEIN");
 
         try {
             file.eachLine(0) { line, number ->
