@@ -11,7 +11,7 @@ class UniProtDictionary {
 
     static main(args) {
         if (!args) {
-            println "UniProtDictionary <RBMannotation.csv>"
+            println "UniProtDictionary <uniprot-dictionary.tsv>"
             System.exit(1)
         }
 
@@ -39,16 +39,31 @@ class UniProtDictionary {
                 }
 
                 // Extract data
-                String[] split = line.split(";")
+                String[] split = line.split("\t")
                 String uniProtNumber = split[0]
                 String entryName = split[1] // symbol
-                String proteinName = split[2]
-                String geneSymbol = split[3]
+                String proteinFullName = split[2].take(1000)
+                String proteinName = split[3].take(200)
+                String organism = split[4]
+                // for the preferred and alternative gene names, we'll have to
+                // explicitly check for the split length, because groovy's split
+                // ignores trailing fields if they're empty:
+                String preferredGeneNames = ""
+                if (split.size() > 5) {
+                    preferredGeneNames = split[5]
+                }
+                String alternativeGeneNames = ""
+                if (split.size() > 6) {
+                    alternativeGeneNames = split[6]
+                }
+                List<String> genesToLink = []
+                genesToLink.addAll(preferredGeneNames.split("; "))
+                genesToLink.addAll(alternativeGeneNames.split(" "))
 
                 // Insert biomarker (including search keywords and terms)
                 BioMarkerEntry bioMarkerEntry = new BioMarkerEntry("PROTEIN", "Protein")
                 bioMarkerEntry.symbol = entryName
-                bioMarkerEntry.description = proteinName
+                bioMarkerEntry.description = proteinFullName
                 bioMarkerEntry.synonyms.add(uniProtNumber)
                 bioMarkerEntry.synonyms.add(proteinName)
                 bioMarkerEntry.externalID = uniProtNumber
@@ -57,13 +72,15 @@ class UniProtDictionary {
                 dictionaryLoader.insertEntry(bioMarkerEntry)
 
                 // Insert data correlation
-                CorrelationEntry correlationEntry = new CorrelationEntry()
-                correlationEntry.symbol1 = entryName
-                correlationEntry.markerType1 = "PROTEIN"
-                correlationEntry.symbol2 = geneSymbol
-                correlationEntry.markerType2 = "GENE"
-                correlationEntry.organism = "HOMO SAPIENS"
-                correlationLoader.insertCorrelation(correlationEntry);
+                for (String geneSymbol: genesToLink) {
+                    CorrelationEntry correlationEntry = new CorrelationEntry()
+                    correlationEntry.symbol1 = entryName
+                    correlationEntry.markerType1 = "PROTEIN"
+                    correlationEntry.symbol2 = geneSymbol
+                    correlationEntry.markerType2 = "GENE"
+                    correlationEntry.organism = "HOMO SAPIENS"
+                    correlationLoader.insertCorrelation(correlationEntry);
+                }
 
             }
         }

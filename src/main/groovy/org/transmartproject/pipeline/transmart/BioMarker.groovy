@@ -92,12 +92,15 @@ class BioMarker {
         return bioMarkerID
     }
 
-    long getBioMarkerIDBySymbol(String symbol, String organism, String markerType) {
+    Long getBioMarkerIDBySymbol(String symbol, String organism, String markerType) {
         String qry = """select bio_marker_id from bio_marker
                         where bio_marker_name=? and organism=? and bio_marker_type=?"""
         GroovyRowResult rowResult = biomart.firstRow(qry,
                 [symbol, organism, markerType])
-        long bioMarkerID = rowResult[0]
+        if (rowResult == null) {
+            return null;
+        }
+        Long bioMarkerID = rowResult[0]
         return bioMarkerID
     }
 

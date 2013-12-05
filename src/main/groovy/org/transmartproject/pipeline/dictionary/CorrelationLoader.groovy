@@ -51,22 +51,25 @@ class CorrelationLoader {
 
     }
 
-    public void insertCorrelation(CorrelationEntry correlationEntry) {
+    public boolean insertCorrelation(CorrelationEntry correlationEntry) {
 
         // Look up the BIO_MARKER_ID for symbol 1
         BioMarker bioMarker = new BioMarker()
         bioMarker.setBiomart(sqlBiomart)
-        long bioMarkerId1 = bioMarker.getBioMarkerIDBySymbol(correlationEntry.symbol1,
+        Long bioMarkerId1 = bioMarker.getBioMarkerIDBySymbol(correlationEntry.symbol1,
                 correlationEntry.organism, correlationEntry.markerType1)
 
         // Look up the BIO_MARKER_ID for symbol 2
         bioMarker = new BioMarker()
         bioMarker.setBiomart(sqlBiomart)
-        long bioMarkerId2 = bioMarker.getBioMarkerIDBySymbol(correlationEntry.symbol2,
+        Long bioMarkerId2 = bioMarker.getBioMarkerIDBySymbol(correlationEntry.symbol2,
                 correlationEntry.organism, correlationEntry.markerType2)
 
-        // Add the correlation to BIO_DATA_CORRELATION
-        bioDataCorrelation.insertBioDataCorrelation(bioMarkerId1, bioMarkerId2, bioDataCorrelDescrId)
-
+        // Add the correlation to BIO_DATA_CORRELATION if possible
+        if (bioMarkerId1 != null && bioMarkerId2 != null) {
+            bioDataCorrelation.insertBioDataCorrelation(bioMarkerId1, bioMarkerId2, bioDataCorrelDescrId)
+            return true;
+        }
+        return false;
     }
 }
