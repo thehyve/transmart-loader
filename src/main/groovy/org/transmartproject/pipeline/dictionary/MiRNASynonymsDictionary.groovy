@@ -1,4 +1,4 @@
-package org.transmartproject.pipeline.transmart
+package org.transmartproject.pipeline.dictionary
 
 import groovy.sql.Sql
 import org.apache.log4j.Logger
