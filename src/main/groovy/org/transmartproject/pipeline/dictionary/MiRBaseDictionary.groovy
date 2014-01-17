@@ -11,27 +11,34 @@ class MiRBaseDictionary {
 
     static main(args) {
         if (!args) {
-            println "MiRBaseDictionary <miRNA.dat>"
+            println "MiRBaseDictionary <miRNA.dat> <aliases.txt>"
             System.exit(1)
         }
 
         def miRNAFileLocation = args[0]
+        def aliasesFileLocation = args[1]
 
         PropertyConfigurator.configure("conf/log4j.properties")
         File miRNAFile = new File(miRNAFileLocation)
+        File aliasesFile = new File(aliasesFileLocation)
         MiRBaseDictionary dict = new MiRBaseDictionary()
-        dict.loadData(miRNAFile)
+        dict.loadData(miRNAFile, aliasesFile)
     }
 
-    void loadData(File miRNAFile) {
+    void loadData(File miRNAFile, File aliasesFile) {
         if (!miRNAFile.exists()) {
             log.error("File is not found: ${miRNAFile.getAbsolutePath()}")
+            return
+        }
+        if (!aliasesFile.exists()) {
+            log.error("File is not found: ${aliasesFile.getAbsolutePath()}")
             return
         }
 
         // Parse input files
         List<BioMarkerEntry> entries = [];
         parseMiRBase(miRNAFile, entries);
+        parseAliases(aliasesFile, entries);
 
         // Load into database
         DictionaryLoader dictionaryLoader = new DictionaryLoader();
@@ -89,6 +96,20 @@ class MiRBaseDictionary {
                 }
             }
         }
+    }
+
+    private void parseAliases(File aliasesFile, List<BioMarkerEntry> entries) {
+
+        aliasesFile.eachLine {
+            String[] split = it.split("\t")
+            String id = split[0]
+            BioMarkerEntry miRBaseEntry = entries.find { it.id == id }
+            if (miRBaseEntry != null) {
+                String[] aliases = split[1].split(";")
+                aliases.each { miRBaseEntry.addSynonym(it) }
+            }
+        }
+
     }
 
 }
