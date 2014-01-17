@@ -17,7 +17,7 @@ class MiRBaseDictionary {
 
         def miRNAFileLocation = args[0]
 
-        PropertyConfigurator.configure("conf/log4j.properties");
+        PropertyConfigurator.configure("conf/log4j.properties")
         File miRNAFile = new File(miRNAFileLocation)
         MiRBaseDictionary dict = new MiRBaseDictionary()
         dict.loadData(miRNAFile)
@@ -29,54 +29,63 @@ class MiRBaseDictionary {
             return
         }
 
+        // Parse input files
+        List<BioMarkerEntry> entries = [];
+        parseMiRBase(miRNAFile, entries);
+
+        // Load into database
         DictionaryLoader dictionaryLoader = new DictionaryLoader();
-
         try {
-            BioMarkerEntry miRBaseEntry = new BioMarkerEntry("MIRNA", "miRNA")
-
-            miRNAFile.eachLine {
-                if (it.startsWith("//")) {
-                    // Insert the current instance and start a new one
-                    if (miRBaseEntry.organism && miRBaseEntry.symbol) {
-                        dictionaryLoader.insertEntry(miRBaseEntry)
-                    }
-                    miRBaseEntry = new BioMarkerEntry("MIRNA", "miRNA")
-                } else if (it.startsWith("ID")) {
-                    // The id symbol (e.g. hsa-mir-100) will be a synonym and the external ID
-                    String[] split = it.substring(5).split(" ")
-                    String idSymbol = split[0]
-                    miRBaseEntry.externalID = idSymbol
-                    miRBaseEntry.synonyms.add(idSymbol)
-
-                    // Extract the organism
-                    if (it.contains("; MMU; ")) {
-                        miRBaseEntry.organism = "MUS MUSCULUS"
-                    }
-                    if (it.contains("; RNO; ")) {
-                        miRBaseEntry.organism = "RATTUS NORVEGICUS"
-                    }
-                    if (it.contains("; HSA; ")) {
-                        miRBaseEntry.organism = "HOMO SAPIENS"
-                    }
-                } else if (it.startsWith("DE")) {
-                    miRBaseEntry.description = it.substring(5)
-                } else if (it.startsWith("DR")) {
-                    if (it.contains("ENTREZGENE")) {
-                        // Extract the Entrez gene code and use it as the symbol
-                        // (There also seems to be an entrez gene id (str[1]),
-                        // but we'll ignore it for now...)
-                        String[] str = it.split("; ")
-                        String code = str[-1]
-                        if (code.endsWith('.')) {
-                            code = code[0..-2]
-                        }
-                        miRBaseEntry.symbol = code.toUpperCase()
-                        miRBaseEntry.source = 'Entrez'
-                    }
-                }
-            }
+            entries.each { dictionaryLoader.insertEntry(it) }
         } finally {
             dictionaryLoader.close()
+        }
+
+    }
+
+    private void parseMiRBase(File miRNAFile, List<BioMarkerEntry> entries) {
+        BioMarkerEntry miRBaseEntry = new BioMarkerEntry("MIRNA", "miRNA")
+
+        miRNAFile.eachLine {
+            if (it.startsWith("//")) {
+                // Insert the current instance and start a new one
+                if (miRBaseEntry.organism && miRBaseEntry.symbol) {
+                    entries.add(miRBaseEntry)
+                }
+                miRBaseEntry = new BioMarkerEntry("MIRNA", "miRNA")
+            } else if (it.startsWith("ID")) {
+                // The id symbol (e.g. hsa-mir-100) will be a synonym and the external ID
+                String[] split = it.substring(5).split(" ")
+                String idSymbol = split[0]
+                miRBaseEntry.externalID = idSymbol
+                miRBaseEntry.synonyms.add(idSymbol)
+
+                // Extract the organism
+                if (it.contains("; MMU; ")) {
+                    miRBaseEntry.organism = "MUS MUSCULUS"
+                }
+                if (it.contains("; RNO; ")) {
+                    miRBaseEntry.organism = "RATTUS NORVEGICUS"
+                }
+                if (it.contains("; HSA; ")) {
+                    miRBaseEntry.organism = "HOMO SAPIENS"
+                }
+            } else if (it.startsWith("DE")) {
+                miRBaseEntry.description = it.substring(5)
+            } else if (it.startsWith("DR")) {
+                if (it.contains("ENTREZGENE")) {
+                    // Extract the Entrez gene code and use it as the symbol
+                    // (There also seems to be an entrez gene id (str[1]),
+                    // but we'll ignore it for now...)
+                    String[] str = it.split("; ")
+                    String code = str[-1]
+                    if (code.endsWith('.')) {
+                        code = code[0..-2]
+                    }
+                    miRBaseEntry.symbol = code.toUpperCase()
+                    miRBaseEntry.source = 'Entrez'
+                }
+            }
         }
     }
 
