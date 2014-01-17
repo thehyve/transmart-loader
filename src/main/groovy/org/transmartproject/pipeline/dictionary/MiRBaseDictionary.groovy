@@ -58,7 +58,7 @@ class MiRBaseDictionary {
                 String[] split = it.substring(5).split(" ")
                 String idSymbol = split[0]
                 miRBaseEntry.externalID = idSymbol
-                miRBaseEntry.synonyms.add(idSymbol)
+                miRBaseEntry.addSynonym(idSymbol)
 
                 // Extract the organism
                 if (it.contains("; MMU; ")) {
