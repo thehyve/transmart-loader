@@ -6,6 +6,7 @@ package org.transmartproject.pipeline.dictionary
  */
 class BioMarkerEntry {
 
+    String id
     String symbol
     String description
     String organism

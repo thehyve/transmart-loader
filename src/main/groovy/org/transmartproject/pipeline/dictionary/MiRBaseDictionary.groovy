@@ -70,6 +70,8 @@ class MiRBaseDictionary {
                 if (it.contains("; HSA; ")) {
                     miRBaseEntry.organism = "HOMO SAPIENS"
                 }
+            } else if (it.startsWith("AC")) {
+                miRBaseEntry.id = it[5..-2]
             } else if (it.startsWith("DE")) {
                 miRBaseEntry.description = it.substring(5)
             } else if (it.startsWith("DR")) {
