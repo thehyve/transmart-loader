@@ -45,7 +45,7 @@ class HMDBDictionary {
                 BioMarkerEntry entry = new BioMarkerEntry("METABOLITE", "Metabolite")
                 entry.symbol = id
                 entry.description = name
-                entry.synonyms.add(name)
+                entry.addSynonym(name)
                 entry.externalID = id
                 entry.source = "HMDB"
                 entry.organism = "HOMO SAPIENS"

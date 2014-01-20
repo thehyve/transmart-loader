@@ -24,9 +24,18 @@ class BioMarkerEntry {
     /** Adds the synonym if it doesn't exist in the synonyms or as symbol.
      */
     public void addSynonym(String synonym) {
+        synonym = synonym.take(200)
         if (symbol != synonym && synonyms.find { it == synonym } == null) {
             synonyms.add(synonym)
         }
+    }
+
+    public void setSymbol(String value) {
+        symbol = value.take(200)
+    }
+
+    public String setDescription(String value) {
+        description = value.take(1000)
     }
 
 }
