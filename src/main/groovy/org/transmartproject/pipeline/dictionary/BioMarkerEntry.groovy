@@ -6,6 +6,7 @@ package org.transmartproject.pipeline.dictionary
  */
 class BioMarkerEntry {
 
+    String id
     String symbol
     String description
     String organism
@@ -13,11 +14,19 @@ class BioMarkerEntry {
     String externalID
     String markerType
     String displayCategory
-    List<String> synonyms = new ArrayList<String>()
+    List<String> synonyms = []
 
     public BioMarkerEntry(String markerType, String displayCategory) {
         this.markerType = markerType
         this.displayCategory = displayCategory
+    }
+
+    /** Adds the synonym if it doesn't exist in the synonyms or as symbol.
+     */
+    public void addSynonym(String synonym) {
+        if (symbol != synonym && synonyms.find { it == synonym } == null) {
+            synonyms.add(synonym)
+        }
     }
 
 }
