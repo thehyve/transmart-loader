@@ -44,7 +44,7 @@ class UniProtDictionary {
                 String entryName = split[1] // symbol
                 String proteinFullName = split[2].take(1000)
                 String proteinName = split[3].take(200)
-                String organism = split[4]
+                String organism = split[4].toUpperCase()
                 // for the preferred and alternative gene names, we'll have to
                 // explicitly check for the split length, because groovy's split
                 // ignores trailing fields if they're empty:
@@ -68,7 +68,7 @@ class UniProtDictionary {
                 bioMarkerEntry.synonyms.add(proteinName)
                 bioMarkerEntry.externalID = uniProtNumber
                 bioMarkerEntry.source = "UniProt"
-                bioMarkerEntry.organism = "HOMO SAPIENS"
+                bioMarkerEntry.organism = organism
                 dictionaryLoader.insertEntry(bioMarkerEntry)
 
                 // Insert data correlation
@@ -78,7 +78,7 @@ class UniProtDictionary {
                     correlationEntry.markerType1 = "PROTEIN"
                     correlationEntry.symbol2 = geneSymbol
                     correlationEntry.markerType2 = "GENE"
-                    correlationEntry.organism = "HOMO SAPIENS"
+                    correlationEntry.organism = organism
                     correlationLoader.insertCorrelation(correlationEntry);
                 }
 
