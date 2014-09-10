@@ -219,6 +219,7 @@ class HighDimImport {
         String sourcesystem = level == 1 ? null : datasetId;
 
         //first try to insert concept, if it exists get its cd. We assume it usually won't exist
+        //note: no sql injection possible here, Groovy adds sql parameters for the GStrings http://groovy.codehaus.org/Tutorial+6+-+Groovy+SQL
         def inserted = i2b2demodata.executeInsert("insert into i2b2demodata.concept_dimension (concept_cd, concept_path, name_char, update_date, download_date, import_date, sourcesystem_cd)\
                    SELECT nextval( 'i2b2demodata.concept_id' ),$path,$node,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,null  \
                    WHERE NOT EXISTS ( SELECT NULL FROM i2b2demodata.concept_dimension WHERE concept_path = $path );\n");
