@@ -183,7 +183,7 @@ class TwoRegion extends HighDimImport {
             def matePairCounts = tokens[3].split(';');
             def baseFreqs = tokens[4].split(';');
             for (int i = 0; i < junctions.length; i++) {
-                def junction = Integer.parseInt(junctions[i]);
+                def junction = Long.parseLong(junctions[i]);
                 def matePairCount = Integer.parseInt(matePairCounts[i]);
                 def baseFreq = Double.parseDouble(baseFreqs[i]);
                 query = "INSERT INTO deapp.de_two_region_junction_event( \
