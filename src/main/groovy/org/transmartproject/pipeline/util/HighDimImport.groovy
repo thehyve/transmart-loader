@@ -160,18 +160,18 @@ class HighDimImport {
                                     trial_name, \
                                     platform) \
                                                          select $patientNum, \
-                                                         $sampleId, \
+                                                         $subjectId, \
                                                          nextval( 'deapp.seq_assay_id' ), \
                                                          $conceptCd, \
                                                          $datasetId, \
                                                          'two_region'\
-                                            WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$sampleId  );\n");
+                                            WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId  );\n");
         if (inserted.empty) {
-            assayId = i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$sampleId ")[0];
+            assayId = i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId ")[0];
         } else {
-            assayId = inserted[0][0];
+            assayId = inserted[0][5];
             //I'm not sure why it is on the second position, better check we really have the right patient_num:
-            if (null == i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$sampleId  AND assay_id=$assayId ")) {
+            if (null == i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId  AND assay_id=$assayId ")) {
                 throw new SQLException("Getting assay_id failed")
             };
             stepCt++;
