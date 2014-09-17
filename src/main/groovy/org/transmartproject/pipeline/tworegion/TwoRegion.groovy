@@ -134,7 +134,7 @@ class TwoRegion extends HighDimImport {
                         // Id            LeftChr LeftPosition       LeftStrand          LeftLength         RightChr              RightPosition     RightStrand                RightLength
 
                         it.addBatch([
-                                'id'         : Integer.parseInt(tokens[0]),
+                                'external_id': Integer.parseInt(tokens[0]),
                                 'up_chr'     : tokens[1],
                                 'up_pos'     : Integer.parseInt(tokens[2]),
                                 'up_strand'  : tokens[3],
