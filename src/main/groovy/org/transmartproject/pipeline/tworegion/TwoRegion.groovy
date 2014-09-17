@@ -37,12 +37,77 @@ class TwoRegion extends HighDimImport {
                 stepCt++;
 
                 insertCgaEvents()
+            } else if (options.tophatFusionPost != false) {
+                readMappingFile(options.mapping)
+
+                importTophatJunctions()
             }
             tm_cz.execute("select tm_cz.cz_end_audit ($jobId, 'SUCCESS')");
         }
         catch (Exception ex) {
             handleError(ex)
         }
+    }
+
+    private static void importTophatJunctions() {
+        //withBatch on the post fusion file, each line specifies one junction which creates one fusion
+        def totalUpdated = 0;
+        try {
+            String query = "INSERT INTO deapp.de_two_region_junction\
+                        (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
+                    VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, null,       :external_id,:assay_id);\
+              INSERT INTO deapp.de_two_region_event \
+                        (cga_type, soap_class) \
+                    VALUES (null, null);\
+              INSERT INTO deapp.de_two_region_junction_event \
+                        (junction_id, event_id,  \
+                         reads_span, reads_junction, pairs_span, pairs_junction,  \
+                         pairs_end, reads_counter, base_freq) \
+                    VALUES (currval( 'de_two_region_junction_seq'), currval( 'de_two_region_event_seq'), null, :spanningReads,  :matePairCount, :matePairSpan, null, null, null );"
+
+
+            new File(options.tophatFusionPost).eachLine {line ->
+                def tokens = line.split();
+                //                        columns:
+                //                        1. Sample name in which a fusion is identified
+                //                        2. Gene on the "left" side of the fusion
+                //                        3. Chromosome ID on the left
+                //                        4. Coordinates on the left
+                //                        5. Gene on the "right" side
+                //                        6. Chromosome ID on the right
+                //                        7. Coordinates on the right
+                //                        8. Number of spanning reads
+                //                        9. Number of spanning mate pairs
+                //                        10. Number of spanning mate pairs where one end spans a fusion
+                deapp.execute(query, [
+                        'up_chr'     : tokens[2],
+                        'up_pos'     : Integer.parseInt(tokens[3]),
+                        'up_strand'  : null,
+                        'up_len'     : 0,
+                        'down_chr'   : tokens[5],
+                        'down_pos'   : Integer.parseInt(tokens[6]),
+                        'down_strand': null,
+                        'down_len'   : 0,
+                        'spanningReads':Integer.parseInt(tokens[7]),
+                        'matePairCount':Integer.parseInt(tokens[8]),
+                        'matePairSpan':Integer.parseInt(tokens[9]),
+                        'assay_id'   : sampleMapping[tokens[0]]])
+                totalUpdated++;
+                if (totalUpdated % 100 == 0) {
+                    print('.')
+                }
+
+            }
+            tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted tophat junctions',$totalUpdated,$stepCt,'Done')");
+            println('')
+            println("Successfully inserted $totalUpdated events")
+
+        }
+        catch (BatchUpdateException ex) {
+            throw ex.getNextException()
+        }
+        stepCt++;
+
     }
 
     private static Boolean parseOptions(args) {

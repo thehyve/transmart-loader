@@ -38,6 +38,9 @@ class HighDimImport {
     private static BigDecimal patientNum
     protected static Integer assayId
 
+    //mapping from sampleID to assayID
+    protected static HashMap<String, String> sampleMapping = new HashMap<>();
+
     protected static void initDB() {
         PropertyConfigurator.configure("conf/log4j.properties");
 
@@ -78,6 +81,24 @@ class HighDimImport {
         insertSubjectSampleMapping()
         insertObservationFact()
         insertSampleDimension()
+    }
+
+    protected static String readMappingFile(mapping) {
+        //line by line on the sample subject mapping file, creating patients, concepts,...
+        new File(mapping).eachLine {line ->
+            if (line.indexOf(';') == -1) {
+                throw new IllegalArgumentException("Mapping file is unknown format. Please use subjectID;sampleID per line")
+            };
+            subjectId = line.split(';')[0];
+            sampleId = line.split(';')[1];
+
+            if (subjectId == '' || sampleId == '') {
+                throw new IllegalArgumentException("Mapping file is invalid on line '$line' Please use subjectID;sampleID per line")
+            };
+            initSourceSystem(subjectId, sampleId)
+            insertMetadata()
+            sampleMapping.put(sampleId, assayId);
+        }
     }
 
     protected static void insertConceptPath() {
