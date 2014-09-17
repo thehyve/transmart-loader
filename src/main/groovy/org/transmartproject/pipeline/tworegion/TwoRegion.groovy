@@ -10,6 +10,20 @@ import java.sql.BatchUpdateException
  */
 class TwoRegion extends HighDimImport {
     private static HashMap<String, Integer> genes;
+    private static final String queryCombined =
+             "INSERT INTO deapp.de_two_region_junction\
+                        (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
+                    VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, :is_in_frame,:external_id,:assay_id);\
+              INSERT INTO deapp.de_two_region_event \
+                        (cga_type, soap_class) \
+                    VALUES (:cga_type, :soap_type);\
+              INSERT INTO deapp.de_two_region_junction_event \
+                        (junction_id, event_id,  \
+                         reads_span, reads_junction, pairs_span, pairs_junction,  \
+                         pairs_end, reads_counter, base_freq) \
+                    VALUES (currval( 'de_two_region_junction_seq'), currval( 'de_two_region_event_seq'),\
+                        :reads_span, :reads_junction, :pairs_span, :pairs_junction,\
+                        :pairs_end, :reads_counter, :base_freq );"
 
     static main(args) {
         procedureName = "load_tworegion";
@@ -41,6 +55,11 @@ class TwoRegion extends HighDimImport {
                 readMappingFile(options.mapping)
 
                 importTophatJunctions()
+            } else if (options.soapFusion != false) {
+                readMappingFile(options.mapping)
+                importSoapJunctions()
+            } else {
+                throw new IllegalArgumentException("Nothing to do, soap, tophat or cga needs to be specified")
             }
             tm_cz.execute("select tm_cz.cz_end_audit ($jobId, 'SUCCESS')");
         }
@@ -49,23 +68,52 @@ class TwoRegion extends HighDimImport {
         }
     }
 
+    private static void importSoapJunctions() {
+        //withBatch on the post fusion file, each line specifies one junction which creates one fusion
+        def totalUpdated = 0;
+        try {
+            new File(options.soapFusion).eachLine {line ->
+                if (line.startsWith('sample\t')) {
+                    return
+                }; //header line
+                def tokens = line.split();
+                //sample	up_gene	dw_gene	up_chr	up_strand	up_Genome_pos	up_loc	dw_chr	dw_strand	dw_Genome_pos	dw_loc	Span_reads_num	Junc_reads_num	Fusion_Type	down_fusion_part_frame.shift_or_not	fusionscore	fusionscore2	fusionscore3	sum_junc_and_span
+                deapp.execute(queryCombined, [
+                        'up_chr'     : tokens[3].substring(3),
+                        'up_pos'     : Integer.parseInt(tokens[5]),
+                        'up_strand'  : tokens[4],
+                        'up_len'     : 0,
+                        'down_chr'   : tokens[7].substring(3),
+                        'down_pos'   : Integer.parseInt(tokens[9]),
+                        'down_strand': tokens[8],
+                        'down_len'   : 0,
+                        'reads_span' :Integer.parseInt(tokens[11]),
+                        'reads_junction':Integer.parseInt(tokens[12]),
+                        'soap_type'  :tokens[13],
+                        'is_in_frame':tokens[14] == 'inframe-shift',
+                        'assay_id'   : sampleMapping[tokens[0]]])
+                totalUpdated++;
+                if (totalUpdated % 100 == 0) {
+                    print('.')
+                }
+
+            }
+            tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted soap junctions',$totalUpdated,$stepCt,'Done')");
+            println('')
+            println("Successfully inserted $totalUpdated events")
+
+        }
+        catch (BatchUpdateException ex) {
+            throw ex.getNextException()
+        }
+        stepCt++;
+
+    }
+
     private static void importTophatJunctions() {
         //withBatch on the post fusion file, each line specifies one junction which creates one fusion
         def totalUpdated = 0;
         try {
-            String query = "INSERT INTO deapp.de_two_region_junction\
-                        (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
-                    VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, null,       :external_id,:assay_id);\
-              INSERT INTO deapp.de_two_region_event \
-                        (cga_type, soap_class) \
-                    VALUES (null, null);\
-              INSERT INTO deapp.de_two_region_junction_event \
-                        (junction_id, event_id,  \
-                         reads_span, reads_junction, pairs_span, pairs_junction,  \
-                         pairs_end, reads_counter, base_freq) \
-                    VALUES (currval( 'de_two_region_junction_seq'), currval( 'de_two_region_event_seq'), null, :spanningReads,  :matePairCount, :matePairSpan, null, null, null );"
-
-
             new File(options.tophatFusionPost).eachLine {line ->
                 def tokens = line.split();
                 //                        columns:
@@ -79,7 +127,7 @@ class TwoRegion extends HighDimImport {
                 //                        8. Number of spanning reads
                 //                        9. Number of spanning mate pairs
                 //                        10. Number of spanning mate pairs where one end spans a fusion
-                deapp.execute(query, [
+                deapp.execute(queryCombined, [
                         'up_chr'     : tokens[2],
                         'up_pos'     : Integer.parseInt(tokens[3]),
                         'up_strand'  : null,
@@ -88,9 +136,9 @@ class TwoRegion extends HighDimImport {
                         'down_pos'   : Integer.parseInt(tokens[6]),
                         'down_strand': null,
                         'down_len'   : 0,
-                        'spanningReads':Integer.parseInt(tokens[7]),
-                        'matePairCount':Integer.parseInt(tokens[8]),
-                        'matePairSpan':Integer.parseInt(tokens[9]),
+                        'reads_junction':Integer.parseInt(tokens[7]),
+                        'pairs_span' :Integer.parseInt(tokens[8]),
+                        'pairs_junction':Integer.parseInt(tokens[9]),
                         'assay_id'   : sampleMapping[tokens[0]]])
                 totalUpdated++;
                 if (totalUpdated % 100 == 0) {
@@ -122,7 +170,7 @@ class TwoRegion extends HighDimImport {
             d longOpt: 'datasource', args: 1, argName: 'datasource', required:true, '* Identification of the dataset this data comes from'
             t longOpt: 'tophatFusionPost', args: 1, argName: 'tophatFile', 'Path to the result of tophat fusion-post'
             o longOpt: 'soapFusion', args: 1, argName: 'soapFile', 'Path to file containing combined SOAPFuse fusion files'
-            x longOpt: 'soapFusionDir', args: 1, argName: 'soapDir', 'Path to directory containing SOAPFuse fusion files with sampleID in their name'
+//            x longOpt: 'soapFusionDir', args: 1, argName: 'soapDir', 'Path to directory containing SOAPFuse fusion files with sampleID in their name'
             m longOpt: 'mapping', args: 1, argName: 'mappingFile', '(TopHat andd SOAPFuse only) Path to the subject sample mapping file (subjectID;sampleID)'
             j longOpt: 'cgaJunctions', args: 1, argName: 'junctionFile', 'Path to file containing output of CGA tools, junction file, needs to be used with cga-events, sample-id and subject-id'
             u longOpt: 'cgaEvents', args: 1, argName: 'eventsFile', 'Path to file containing output of CGA tools, events file, needs to be used with cga-junctions, sample-id and subject-id'
@@ -134,8 +182,9 @@ class TwoRegion extends HighDimImport {
 
         options = cli.parse(args)
         // Show usage text when -h or --help option is used.
-        if (!options)
-            return false;
+        if (!options) {
+            return false
+        };
         if  (options.h) {
         } else if (options.t && !options.m){
             println('for tophat a mapping file is needed');
