@@ -52,7 +52,7 @@ class HighDimImport {
     }
 
     protected static void cleanupOptions() {
-        datasetId = options.datasetId;
+        datasetId = options.studyId;
         concept = options.conceptPath
 
         datasetId = datasetId.replace("'", "''");
