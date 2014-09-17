@@ -217,7 +217,7 @@ class HighDimImport {
         Integer conceptId;
         //don't insert root node ("Public Studies") with a specific dataset id
         String sourcesystem = level == 1 ? null : datasetId;
-
+        String comment = "Trial:"+datasetId;
         //first try to insert concept, if it exists get its cd. We assume it usually won't exist
         //note: no sql injection possible here, Groovy adds sql parameters for the GStrings http://groovy.codehaus.org/Tutorial+6+-+Groovy+SQL
         def inserted = i2b2demodata.executeInsert("insert into i2b2demodata.concept_dimension (concept_cd, concept_path, name_char, update_date, download_date, import_date, sourcesystem_cd)\
@@ -274,7 +274,7 @@ class HighDimImport {
                                          ,$conceptId \
                                          ,'LIKE' \
                                          ,'T' \
-                                         ,$sourceSystem \
+                                         ,$comment \
                                          ,'@' \
                                          ,null\
                                 WHERE NOT EXISTS ( SELECT NULL FROM i2b2metadata.i2b2 WHERE c_fullname = $path )").empty) {
