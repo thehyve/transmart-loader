@@ -303,7 +303,7 @@ class TwoRegion extends HighDimImport {
                 return;
             }
 
-            def tokens = line.split();
+            def tokens = line.split('\t', -1);   //-1 means we want to see trailing empty columns as well
             //EventId	Type	RelatedJunctionIds	MatePairCounts	FrequenciesInBaselineGenomeSet	OriginRegionChr	OriginRegionBegin	OriginRegionEnd	OriginRegionLength	OriginRegionStrand	DestinationRegionChr	DestinationRegionBegin	DestinationRegionEnd	DestinationRegionLength	DestinationRegionStrand	DisruptedGenes	ContainedGenes	GeneFusions	RelatedMobileElement	MobileElementChr	MobileElementBegin	MobileElementEnd	MobileElementStrand
 
             GString query = "INSERT INTO deapp.de_two_region_event( \
