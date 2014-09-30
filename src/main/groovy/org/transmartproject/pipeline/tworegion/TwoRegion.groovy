@@ -29,20 +29,25 @@ import java.sql.BatchUpdateException
 class TwoRegion extends HighDimImport {
     private static HashMap<String, Integer> genes;
     private static final String queryCombined =
-             "INSERT INTO deapp.de_two_region_junction\
-                        (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
-                    VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, :is_in_frame,:external_id,:assay_id);\
-              INSERT INTO deapp.de_two_region_event \
-                        (cga_type, soap_class) \
-                    VALUES (:cga_type, :soap_type);\
-              INSERT INTO deapp.de_two_region_junction_event \
+               "INSERT INTO deapp.de_two_region_junction\
+                         (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
+                 VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, :is_in_frame,:external_id,:assay_id);\
+                INSERT INTO deapp.de_two_region_event \
+                         (cga_type, soap_class) \
+                 VALUES (:cga_type, :soap_type);\
+                INSERT INTO deapp.de_two_region_junction_event \
                         (junction_id, event_id,  \
-                         reads_span, reads_junction, pairs_span, pairs_junction,  \
-                         pairs_end, reads_counter, base_freq) \
-                    VALUES (currval( 'de_two_region_junction_seq'), currval( 'de_two_region_event_seq'),\
-                        :reads_span, :reads_junction, :pairs_span, :pairs_junction,\
-                        :pairs_end, :reads_counter, :base_freq );"
-
+                        reads_span, reads_junction, pairs_span, pairs_junction,  \
+                        pairs_end, reads_counter, base_freq) \
+                 VALUES (currval( 'de_two_region_junction_seq'), currval( 'de_two_region_event_seq'),\
+                       :reads_span, :reads_junction, :pairs_span, :pairs_junction,\
+                       :pairs_end, :reads_counter, :base_freq );\
+                INSERT INTO deapp.de_two_region_event_gene( \
+                        gene_id, event_id, effect) VALUES   \
+                      (:up_gene, currval( 'de_two_region_event_seq'), 'FUSION');\
+                INSERT INTO deapp.de_two_region_event_gene( \
+                        gene_id, event_id, effect) VALUES   \
+                      (:down_gene, currval( 'de_two_region_event_seq'), 'FUSION');";
     static main(args) {
         procedureName = "load_tworegion";
         initDB()
@@ -97,6 +102,8 @@ class TwoRegion extends HighDimImport {
                 def tokens = line.split();
                 //sample	up_gene	dw_gene	up_chr	up_strand	up_Genome_pos	up_loc	dw_chr	dw_strand	dw_Genome_pos	dw_loc	Span_reads_num	Junc_reads_num	Fusion_Type	down_fusion_part_frame.shift_or_not	fusionscore	fusionscore2	fusionscore3	sum_junc_and_span
                 deapp.execute(queryCombined, [
+                        'up_gene'    : tokens[1],
+                        'down_gene'  : tokens[2],
                         'up_chr'     : tokens[3].substring(3),
                         'up_pos'     : Integer.parseInt(tokens[5]),
                         'up_strand'  : tokens[4],
@@ -146,10 +153,12 @@ class TwoRegion extends HighDimImport {
                 //                        9. Number of spanning mate pairs
                 //                        10. Number of spanning mate pairs where one end spans a fusion
                 deapp.execute(queryCombined, [
+                        'up_gene'    : tokens[1],
                         'up_chr'     : tokens[2],
                         'up_pos'     : Integer.parseInt(tokens[3]),
                         'up_strand'  : null,
                         'up_len'     : 0,
+                        'down_gene'  : tokens[4],
                         'down_chr'   : tokens[5],
                         'down_pos'   : Integer.parseInt(tokens[6]),
                         'down_strand': null,
@@ -331,21 +340,18 @@ class TwoRegion extends HighDimImport {
                 junctionEventsCount++;
             }
 
-            /* TODO: integrate with genes
-            def disruptedGgenes = tokens[15].split(';').findAll({ !it.matches('^LOC[0-9]+')});
-            for (int i=0;i<disruptedGgenes.length;i++) {
-
-                query = "INSERT INTO deapp.de_two_region_event_gene( \
-                gene_id, event_id, effect) VALUES   \
-               (?, ?, ?);
-                "
-                deapp.execute(query);
-                genesCount++;
-            }
-            //def containedGenes = tokens[16].split(';').findAll({ !it.matches('^LOC[0-9]+')});
-            //def fusionGenes = tokens[17].split(';');
-            */
-
+            /* TODO: integrate with genes */
+            def disruptedGgenes = tokens[15].split(';').findAll({ it != '' && !it.matches('^LOC[0-9]+')});
+            genesCount += insertGenes(disruptedGgenes, 'DISRUPTED')
+            def containedGenes = tokens[16].split(';').findAll({ it != '' && !it.matches('^LOC[0-9]+')});
+            genesCount += insertGenes(containedGenes, 'CONTAINED')
+            def fusionGenes = tokens[17]
+                                .replaceAll('TSS-UPSTREAM\\[','') //we don't care the genes are fused in a TFBS
+                                .replaceAll('\\]/','/')
+                                .split('[;/]')
+                                .findAll({  it != '' && !it.matches('^LOC[0-9]+')})
+                                .unique();
+            genesCount += insertGenes(fusionGenes, 'FUSION')
         }
         tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted cga events',$eventsCount,$stepCt,'Done')");
         tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted cga junction-event links',$junctionEventsCount,$stepCt,'Done')");
@@ -360,5 +366,20 @@ class TwoRegion extends HighDimImport {
         //TODO: get entrez id from hugo
     }
 
+    private static int insertGenes(ArrayList<String> genes, String type) {
+        int genesCount = 0;
+        GString query
+        for (int i = 0; i < genes.size(); i++) {
+            String geneId = genes[i];
+            query = "INSERT INTO deapp.de_two_region_event_gene( \
+                gene_id, event_id, effect) VALUES   \
+               ($geneId, currval( 'de_two_region_event_seq'), $type);";
+            deapp.execute(query);
+            genesCount++;
+        }
+        genesCount
+    }
+
 
 }
+
