@@ -206,11 +206,11 @@ class TwoRegion extends HighDimImport {
             f longOpt: 'force',   'Answer yes to all prompts'
             r longOpt: 'ref', args: 1, argName: 'ref', 'Human genome reference version (i.e. hg18)'
         }
-        cli.footer = "Example:\n-s example_study -c \"/Public studies/example_study/soap\" -d s --mapping mapping.txt --soapFusion soapresult.txt  \n" +
+        cli.footer = "Example:\n-s example_study -c \"/Public studies/example_study/soap\" -d s --mapping sample/tworegion/mapping.txt --soapFusion sample/tworegion/soapresult.txt  \n" +
                 "\n" +
-                "-s example_study -c \"/Public studies/example_study/tophat\" -d t --mapping mapping.txt --tophatFusionPost results.txt  \n" +
+                "-s example_study -c \"/Public studies/example_study/tophat\" -d t --mapping sample/tworegion/mapping.txt --tophatFusionPost sample/tworegion/tophatresults.txt  \n" +
                 "\n" +
-                "-s example_study -c \"/Public studies/example_study/cga\" -d b --cgaJunctions junctions.csv  --cgaEvents events.tsv -i subject1 -a sample1"
+                "-s example_study -c \"/Public studies/example_study/cga\" -d b --cgaJunctions sample/tworegion/cga_junctions.csv  --cgaEvents sample/tworegion/cga_events.tsv -i subject1 -a sample1"
         options = cli.parse(args)
         // Show usage text when -h or --help option is used.
         if (!options) {
