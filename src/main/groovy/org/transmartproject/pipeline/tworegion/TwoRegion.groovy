@@ -28,7 +28,7 @@ import java.sql.BatchUpdateException
  */
 class TwoRegion extends HighDimImport {
     private static HashMap<String, Integer> genes;
-    private static final String queryCombined =
+    private static String queryCombined =
                "INSERT INTO deapp.de_two_region_junction\
                          (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
                  VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, :is_in_frame,:external_id,:assay_id);\
@@ -48,6 +48,26 @@ class TwoRegion extends HighDimImport {
                 INSERT INTO deapp.de_two_region_event_gene( \
                         gene_id, event_id, effect) VALUES   \
                       (:down_gene, currval( 'de_two_region_event_seq'), 'FUSION');";
+    private static String queryCombinedOracle =
+            "BEGIN INSERT INTO deapp.de_two_region_junction\
+                      (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
+              VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, :is_in_frame,:external_id,:assay_id);\
+             INSERT INTO deapp.de_two_region_event \
+                      (cga_type, soap_class) \
+              VALUES (:cga_type, :soap_type);\
+             INSERT INTO deapp.de_two_region_junction_event \
+                     (junction_id, event_id,  \
+                     reads_span, reads_junction, pairs_span, pairs_junction,  \
+                     pairs_end, reads_counter, base_freq) \
+              VALUES (de_two_region_junction_seq.currval, de_two_region_event_seq.currval,\
+                    :reads_span, :reads_junction, :pairs_span, :pairs_junction,\
+                    :pairs_end, :reads_counter, :base_freq );\
+             INSERT INTO deapp.de_two_region_event_gene( \
+                     gene_id, event_id, effect) VALUES   \
+                   (:up_gene, de_two_region_event_seq.currval, 'FUSION');\
+             INSERT INTO deapp.de_two_region_event_gene( \
+                     gene_id, event_id, effect) VALUES   \
+                   (:down_gene, de_two_region_event_seq.currval, 'FUSION'); END;";
     static main(args) {
         procedureName = "load_tworegion";
         initDB()
@@ -56,6 +76,10 @@ class TwoRegion extends HighDimImport {
         if (!parseOptions(args)) {
             return
         };
+        if (isOracle) {
+            queryCombined = queryCombinedOracle;
+        }
+
 
         cleanupOptions()
         startAudit()
@@ -84,7 +108,7 @@ class TwoRegion extends HighDimImport {
             } else {
                 throw new IllegalArgumentException("Nothing to do, soap, tophat or cga needs to be specified")
             }
-            tm_cz.execute("select tm_cz.cz_end_audit ($jobId, 'SUCCESS')");
+            endAudit('SUCCESS');
         }
         catch (Exception ex) {
             handleError(ex)
@@ -123,7 +147,7 @@ class TwoRegion extends HighDimImport {
                 }
 
             }
-            tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted soap junctions',$totalUpdated,$stepCt,'Done')");
+            writeAudit('Inserted soap junctions',totalUpdated,stepCt,'Done');
             println('')
             println("Successfully inserted $totalUpdated events")
 
@@ -173,7 +197,7 @@ class TwoRegion extends HighDimImport {
                 }
 
             }
-            tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted tophat junctions',$totalUpdated,$stepCt,'Done')");
+            writeAudit('Inserted tophat junctions',totalUpdated,stepCt,'Done');
             println('')
             println("Successfully inserted $totalUpdated events")
 
@@ -292,7 +316,7 @@ class TwoRegion extends HighDimImport {
                     }
             })
             def totalUpdated = (updatedCounts as Integer[]).sum();
-            tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted cga junctions',$totalUpdated,$stepCt,'Done')");
+            writeAudit('Inserted cga junctions',totalUpdated,stepCt,'Done');
         }
         catch (BatchUpdateException ex) {
             throw ex.getNextException() //real exception is in the next one, container exception is just "batch failed"
@@ -317,7 +341,7 @@ class TwoRegion extends HighDimImport {
 
             GString query = "INSERT INTO deapp.de_two_region_event( \
                                          cga_type, soap_class) \
-                                 VALUES (${tokens[1]}, null);"
+                                 VALUES (${tokens[1]}, null)"
             deapp.execute(query);
             eventsCount++;
             if (eventsCount % 100 == 0) {
@@ -331,11 +355,19 @@ class TwoRegion extends HighDimImport {
                 def junction = Long.parseLong(junctions[i]);
                 def matePairCount = Integer.parseInt(matePairCounts[i]);
                 def baseFreq = Double.parseDouble(baseFreqs[i]);
-                query = "INSERT INTO deapp.de_two_region_junction_event( \
+                if (isOracle) {
+                    query = "INSERT INTO deapp.de_two_region_junction_event( \
                                              junction_id, event_id,  \
                                              reads_span, reads_junction, pairs_span, pairs_junction,  \
                                              pairs_end, reads_counter, base_freq) \
-                                     VALUES (${internalIds[junction]}, currval( 'de_two_region_event_seq'), null, null, $matePairCount, null, null, null, $baseFreq );"
+                                     VALUES (${internalIds[junction]}, de_two_region_event_seq.currval, null, null, $matePairCount, null, null, null, $baseFreq )"
+                } else {
+                    query = "INSERT INTO deapp.de_two_region_junction_event( \
+                                             junction_id, event_id,  \
+                                             reads_span, reads_junction, pairs_span, pairs_junction,  \
+                                             pairs_end, reads_counter, base_freq) \
+                                     VALUES (${internalIds[junction]}, currval( 'de_two_region_event_seq'), null, null, $matePairCount, null, null, null, $baseFreq )"
+                }
                 deapp.execute(query);
                 junctionEventsCount++;
             }
@@ -353,9 +385,9 @@ class TwoRegion extends HighDimImport {
                                 .unique();
             genesCount += insertGenes(fusionGenes, 'FUSION')
         }
-        tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted cga events',$eventsCount,$stepCt,'Done')");
-        tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted cga junction-event links',$junctionEventsCount,$stepCt,'Done')");
-        tm_cz.execute("select tm_cz.cz_write_audit($jobId,'TM_CZ',$procedureName,'Inserted cga gene-event links',$genesCount,$stepCt,'Done')");
+        writeAudit('Inserted cga events',eventsCount,stepCt,'Done');
+        writeAudit('Inserted cga junction-event links',junctionEventsCount,stepCt,'Done');
+        writeAudit('Inserted cga gene-event links',genesCount,stepCt,'Done');
         println('')
         println("Successfully inserted $eventsCount events")
     }
@@ -371,9 +403,15 @@ class TwoRegion extends HighDimImport {
         GString query
         for (int i = 0; i < genes.size(); i++) {
             String geneId = genes[i];
+            if (isOracle) {
             query = "INSERT INTO deapp.de_two_region_event_gene( \
                 gene_id, event_id, effect) VALUES   \
-               ($geneId, currval( 'de_two_region_event_seq'), $type);";
+               ($geneId, de_two_region_event_seq.currval, $type)";
+            } else {
+                query = "INSERT INTO deapp.de_two_region_event_gene( \
+                gene_id, event_id, effect) VALUES   \
+               ($geneId, currval( 'de_two_region_event_seq'), $type)";
+            }
             deapp.execute(query);
             genesCount++;
         }
