@@ -403,7 +403,7 @@ class HighDimImport {
                     WHERE NOT EXISTS ( SELECT NULL FROM i2b2demodata.concept_dimension WHERE concept_path = $path )")
             if (inserted.empty) {
             } else {
-                conceptId = Integer.parseInt(inserted[0][1]);
+                conceptId = Integer.parseInt(inserted[0][0]);
                 //I'm not sure why it is on the second position, better check we really have the right concept_cd:
                 if (null == i2b2demodata.firstRow("SELECT concept_cd FROM i2b2demodata.concept_dimension WHERE concept_path = $path AND concept_cd=$conceptId")) {
                     throw new SQLException("Getting concept_cd failed")

@@ -30,8 +30,8 @@ class TwoRegion extends HighDimImport {
     private static HashMap<String, Integer> genes;
     private static String queryCombined =
                "INSERT INTO deapp.de_two_region_junction\
-                         (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
-                 VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, :is_in_frame,:external_id,:assay_id);\
+                         (up_chr, up_pos, up_strand, up_end, down_chr, down_pos, down_strand, down_end, is_in_frame, external_id, assay_id) \
+                 VALUES (:up_chr,:up_pos,:up_strand,:up_end,:down_chr,:down_pos,:down_strand,:down_end, :is_in_frame,:external_id,:assay_id);\
                 INSERT INTO deapp.de_two_region_event \
                          (cga_type, soap_class) \
                  VALUES (:cga_type, :soap_type);\
@@ -50,8 +50,8 @@ class TwoRegion extends HighDimImport {
                       (:down_gene, currval( 'de_two_region_event_seq'), 'FUSION');";
     private static String queryCombinedOracle =
             "BEGIN INSERT INTO deapp.de_two_region_junction\
-                      (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) \
-              VALUES (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, :is_in_frame,:external_id,:assay_id);\
+                      (up_chr, up_pos, up_strand, up_end, down_chr, down_pos, down_strand, down_end, is_in_frame, external_id, assay_id) \
+              VALUES (:up_chr,:up_pos,:up_strand,:up_end,:down_chr,:down_pos,:down_strand,:down_end, :is_in_frame,:external_id,:assay_id);\
              INSERT INTO deapp.de_two_region_event \
                       (cga_type, soap_class) \
               VALUES (:cga_type, :soap_type);\
@@ -131,11 +131,11 @@ class TwoRegion extends HighDimImport {
                         'up_chr'     : tokens[3].substring(3),
                         'up_pos'     : Integer.parseInt(tokens[5]),
                         'up_strand'  : tokens[4],
-                        'up_len'     : 0,
+                        'up_end'     : Integer.parseInt(tokens[5]),
                         'down_chr'   : tokens[7].substring(3),
                         'down_pos'   : Integer.parseInt(tokens[9]),
                         'down_strand': tokens[8],
-                        'down_len'   : 0,
+                        'down_end'   : Integer.parseInt(tokens[9]),
                         'reads_span' :Integer.parseInt(tokens[11]),
                         'reads_junction':Integer.parseInt(tokens[12]),
                         'soap_type'  :tokens[13],
@@ -181,12 +181,12 @@ class TwoRegion extends HighDimImport {
                         'up_chr'     : tokens[2],
                         'up_pos'     : Integer.parseInt(tokens[3]),
                         'up_strand'  : null,
-                        'up_len'     : 0,
+                        'up_end'     : Integer.parseInt(tokens[3]),
                         'down_gene'  : tokens[4],
                         'down_chr'   : tokens[5],
                         'down_pos'   : Integer.parseInt(tokens[6]),
                         'down_strand': null,
-                        'down_len'   : 0,
+                        'down_end'   : Integer.parseInt(tokens[6]),
                         'reads_junction':Integer.parseInt(tokens[7]),
                         'pairs_span' :Integer.parseInt(tokens[8]),
                         'pairs_junction':Integer.parseInt(tokens[9]),
@@ -288,8 +288,8 @@ class TwoRegion extends HighDimImport {
         String platform;
         try {
             def updatedCounts = deapp.withBatch(100, "INSERT INTO deapp.de_two_region_junction\
-             (up_chr, up_pos, up_strand, up_len, down_chr, down_pos, down_strand, down_len, is_in_frame, external_id, assay_id) VALUES \
-            (:up_chr,:up_pos,:up_strand,:up_len,:down_chr,:down_pos,:down_strand,:down_len, null,       :external_id,:assay_id)", {
+             (up_chr, up_pos, up_strand, up_end, down_chr, down_pos, down_strand, down_end, is_in_frame, external_id, assay_id) VALUES \
+            (:up_chr,:up_pos,:up_strand,:up_end,:down_chr,:down_pos,:down_strand,:down_end, null,       :external_id,:assay_id)", {
                 BatchingPreparedStatementWrapper it ->
                     new File(options.cgaJunctions).eachLine {line ->
                         if (line[0] == '#' || line[0] == ' ' || line[0] == '>') {
@@ -307,11 +307,11 @@ class TwoRegion extends HighDimImport {
                                 'up_chr'     : tokens[1],
                                 'up_pos'     : Integer.parseInt(tokens[2]),
                                 'up_strand'  : tokens[3],
-                                'up_len'     : Integer.parseInt(tokens[4]),
+                                'up_end'     : Integer.parseInt(tokens[2])+Integer.parseInt(tokens[4]),
                                 'down_chr'   : tokens[5],
                                 'down_pos'   : Integer.parseInt(tokens[6]),
                                 'down_strand': tokens[7],
-                                'down_len'   : Integer.parseInt(tokens[8]),
+                                'down_end'   :  Integer.parseInt(tokens[6])+Integer.parseInt(tokens[8]),
                                 'assay_id'   : assayId])
                     }
             })
