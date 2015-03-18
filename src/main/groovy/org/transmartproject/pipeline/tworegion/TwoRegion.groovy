@@ -108,6 +108,7 @@ class TwoRegion extends HighDimImport {
             } else {
                 throw new IllegalArgumentException("Nothing to do, soap, tophat or cga needs to be specified")
             }
+            finalize()
             endAudit('SUCCESS');
         }
         catch (Exception ex) {
