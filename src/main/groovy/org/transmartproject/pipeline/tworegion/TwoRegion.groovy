@@ -292,7 +292,7 @@ class TwoRegion extends HighDimImport {
             (:up_chr,:up_pos,:up_strand,:up_end,:down_chr,:down_pos,:down_strand,:down_end, null,       :external_id,:assay_id)", {
                 BatchingPreparedStatementWrapper it ->
                     new File(options.cgaJunctions).eachLine {line ->
-                        if (line[0] == '#' || line[0] == ' ' || line[0] == '>') {
+                        if (line.size() == 0 || line[0] == '#' || line[0] == ' ' || line[0] == '>') {
                             //header
                             if (line.startsWith('#GENOME_REFERENCE\t')) {
                                 platform = line.replaceFirst('#GENOME_REFERENCE\t', '')
