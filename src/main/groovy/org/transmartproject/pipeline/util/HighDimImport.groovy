@@ -393,13 +393,13 @@ class HighDimImport {
                     "       on (c.concept_path=d.path) " +
                     "when not matched then " +
                     "       insert  (concept_path, name_char, update_date, download_date, import_date, sourcesystem_cd)" +
-                    "        values ('$path','$node',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,null)");
+                    "        values ('$path','$node',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'$sourcesystem')");
             stepCt++;
             writeAudit('Merged concept '+path,0,stepCt ,'Done');
         } else {
             List inserted;
             inserted = i2b2demodata.executeInsert("insert into i2b2demodata.concept_dimension (concept_path, name_char, update_date, download_date, import_date, sourcesystem_cd)\
-                    SELECT $path,$node,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,null  \
+                    SELECT $path,$node,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'$sourcesystem'  \
                     WHERE NOT EXISTS ( SELECT NULL FROM i2b2demodata.concept_dimension WHERE concept_path = $path )")
             if (inserted.empty) {
             } else {
