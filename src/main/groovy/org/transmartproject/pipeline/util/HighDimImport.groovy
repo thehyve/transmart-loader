@@ -155,7 +155,7 @@ class HighDimImport {
         def pathEls = concept.split('\\\\');
         String path = "\\"
         for (Integer level = 0; level < topLevel-1; level++) {
-            String node = pathEls[level];
+            String node = pathEls[level+1];
             path = path + node + "\\";
             String attr = (level == topLevel - 2) ? "LAH" : "FA";
             conceptCd = insertConceptNode(path, node, level, attr)
