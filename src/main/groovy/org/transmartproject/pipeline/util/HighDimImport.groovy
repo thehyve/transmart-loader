@@ -381,8 +381,8 @@ class HighDimImport {
         }
     }
 
-        tm_cz.execute(executeSP+" i2b2demodata.i2b2_create_concept_counts($jobId, $concept)");
     protected static void finish() {
+        tm_cz.execute(executeSP+" tm_cz.i2b2_create_concept_counts('$concept', '$jobId')");
         writeAudit('Finished metadata creation',0,1,'Done');
     }
     private static int insertConceptNode(String path, String node, int level, String attr) {
@@ -403,7 +403,7 @@ class HighDimImport {
         } else {
             List inserted;
             inserted = i2b2demodata.executeInsert("insert into i2b2demodata.concept_dimension (concept_path, name_char, update_date, download_date, import_date, sourcesystem_cd)\
-                    SELECT $path,$node,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'$sourcesystem'  \
+                    SELECT $path,$node,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,$sourcesystem  \
                     WHERE NOT EXISTS ( SELECT NULL FROM i2b2demodata.concept_dimension WHERE concept_path = $path )")
             if (inserted.empty) {
             } else {
