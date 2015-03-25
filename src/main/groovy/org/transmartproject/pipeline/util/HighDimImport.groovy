@@ -389,7 +389,7 @@ class HighDimImport {
         Integer conceptId;
         //don't insert root node ("Public Studies") with a specific dataset id
         String sourcesystem = level == 1 ? null : datasetId;
-        String comment = "Trial:"+datasetId;
+        String comment = "trial:"+datasetId;
         //first try to insert concept, if it exists get its cd. We assume it usually won't exist
         if (isOracle) {
             i2b2demodata.execute("merge into i2b2demodata.concept_dimension c  " +
