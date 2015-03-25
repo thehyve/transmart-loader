@@ -381,8 +381,8 @@ class HighDimImport {
         }
     }
 
-    private static void finalize() {
         tm_cz.execute(executeSP+" i2b2demodata.i2b2_create_concept_counts($jobId, $concept)");
+    protected static void finish() {
         writeAudit('Finished metadata creation',0,1,'Done');
     }
     private static int insertConceptNode(String path, String node, int level, String attr) {
