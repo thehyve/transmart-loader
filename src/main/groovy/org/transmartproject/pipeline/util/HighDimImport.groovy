@@ -124,6 +124,7 @@ class HighDimImport {
 
     protected static void insertMetadata() {
         insertPatient()
+        insertGplPlatform()
         insertSubjectSampleMapping()
         insertObservationFact()
         insertSampleDimension()
@@ -282,12 +283,14 @@ class HighDimImport {
                                     subject_id, \
                                     concept_code, \
                                     trial_name, \
+                                    gpl_id, \
                                     platform) \
                            Values (DEAPP.SEQ_ASSAY_ID.nextval,\
                                       $patientNum, \
                                      '$subjectId', \
                                      '$conceptCd', \
                                      '$datasetId', \
+                                     'two_region',\
                                      'two_region')");
             assayId = i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId ")[0];
             stepCt++;
@@ -299,12 +302,14 @@ class HighDimImport {
                                     assay_id, \
                                     concept_code, \
                                     trial_name, \
+                                    gpl_id, \
                                     platform) \
                                                          select $patientNum, \
                                                          $subjectId, \
                                                          nextval( 'deapp.seq_assay_id' ), \
                                                          $conceptCd, \
                                                          $datasetId, \
+                                                         'two_region',\
                                                          'two_region'\
                                             WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId  );\n");
             if (inserted.empty) {
@@ -321,6 +326,32 @@ class HighDimImport {
         }
     }
 
+    private static void insertGplPlatform() {
+        //first try to insert the gpl info, if it exists get its num. We assume it usually won't exist
+        if (isOracle) {
+            i2b2metadata.execute("merge into deapp.de_gpl_info p" +
+                    "using (select 'two_region' as platform from dual) d " +
+                    "       on (p.platform=d.platform) " +
+                    "when not matched then " +
+                    "INSERT INTO deapp.de_gpl_info(\n" +
+                    "            platform, title, organism, annotation_date, marker_type, genome_build, \n" +
+                    "            release_nbr)\n" +
+                    "    VALUES ('two_region', 'Two region', 'Homo sapiens', null, 'two_region', 'hg19', \n" +
+                    "            null)"
+                    );
+        } else {
+            def inserted = deapp.executeInsert("INSERT INTO deapp.de_gpl_info(\n" +
+                    "            platform, title, organism, annotation_date, marker_type, genome_build, \n" +
+                    "            release_nbr)\n" +
+                    "     select 'two_region', 'Two region', 'Homo sapiens', null, 'two_region', 'hg19', \n" +
+                    "            null " +
+                    "WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_gpl_info WHERE platform = 'two_region');\n");
+            if (!inserted.empty) {
+                stepCt++;
+                writeAudit('Inserted de_gpl_info', 1, stepCt, 'Done');
+            }
+        }
+    }
     private static void insertPatient() {
         //first try to insert the patient, if it exists get its num. We assume it usually won't exist
         if (isOracle) {
