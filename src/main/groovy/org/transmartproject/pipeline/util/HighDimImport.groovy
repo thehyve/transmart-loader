@@ -545,6 +545,108 @@ class HighDimImport {
                 writeAudit('Added i2b2 ' + path, 0, stepCt, 'Done');
             }
         }
+        def expsourcesystem = 'EXP:'+sourcesystem
+        if (isOracle) {
+            i2b2metadata.execute("merge into i2b2metadata.i2b2_secure c  " +
+                    "using (select '$path' as path from dual) d " +
+                    "       on (c.c_fullname=d.path) " +
+                    "when not matched then " +
+                    "       insert  \
+                                             (c_hlevel \
+                                              ,c_fullname \
+                                              ,c_name \
+                                              ,c_visualattributes \
+                                              ,c_synonym_cd \
+                                              ,c_facttablecolumn \
+                                              ,c_tablename \
+                                              ,c_columnname \
+                                              ,c_dimcode \
+                                              ,c_tooltip \
+                                              ,update_date \
+                                              ,download_date \
+                                              ,import_date \
+                                              ,sourcesystem_cd \
+                                              ,c_basecode \
+                                              ,c_operator \
+                                              ,c_columndatatype \
+                                              ,c_comment \
+                                              ,m_applied_path \
+                                              ,c_metadataxml \
+                                              ,secure_obj_token \
+                                             ) \
+                             VALUES ($level \
+                                     ,'$path' \
+                                     ,'$node' \
+                                     ,'$attr' \
+                                     ,'N' \
+                                     ,'CONCEPT_CD' \
+                                     ,'CONCEPT_DIMENSION' \
+                                     ,'CONCEPT_PATH' \
+                                     ,'$path' \
+                                     ,'$path' \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,'$sourcesystem' \
+                                     ,$conceptId \
+                                     ,'LIKE' \
+                                     ,'T' \
+                                     ,'$comment' \
+                                     ,'@' \
+                                     ,null \
+                                     ,$expsourcesystem)")
+            stepCt++;
+            writeAudit('Merged i2b2_secure ' + path, 0, stepCt, 'Done');
+        } else {
+            if (!i2b2metadata.executeInsert("insert into i2b2metadata.i2b2_secure \
+                                             (c_hlevel \
+                                              ,c_fullname \
+                                              ,c_name \
+                                              ,c_visualattributes \
+                                              ,c_synonym_cd \
+                                              ,c_facttablecolumn \
+                                              ,c_tablename \
+                                              ,c_columnname \
+                                              ,c_dimcode \
+                                              ,c_tooltip \
+                                              ,update_date \
+                                              ,download_date \
+                                              ,import_date \
+                                              ,sourcesystem_cd \
+                                              ,c_basecode \
+                                              ,c_operator \
+                                              ,c_columndatatype \
+                                              ,c_comment \
+                                              ,m_applied_path \
+                                              ,c_metadataxml \
+                                              ,secure_obj_token \
+                                             ) \
+                             select $level \
+                                     ,$path \
+                                     ,$node \
+                                     ,$attr \
+                                     ,'N' \
+                                     ,'CONCEPT_CD' \
+                                     ,'CONCEPT_DIMENSION' \
+                                     ,'CONCEPT_PATH' \
+                                     ,$path \
+                                     ,$path \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,$sourcesystem \
+                                     ,$conceptId \
+                                     ,'LIKE' \
+                                     ,'T' \
+                                     ,$comment \
+                                     ,'@' \
+                                     ,null\
+                                     ,$expsourcesystem\
+                            WHERE NOT EXISTS ( SELECT NULL FROM i2b2metadata.i2b2_secure WHERE c_fullname = $path )").empty) {
+                stepCt++;
+                writeAudit('Added i2b2_secure ' + path, 0, stepCt, 'Done');
+            }
+        }
         return conceptId;
     }
 }
