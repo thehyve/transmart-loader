@@ -256,27 +256,27 @@ class TwoRegion extends HighDimImport {
             println('unknown reference');
         } else {
             if (options.t && !new File(options.t).exists()) {
-                println('tophat fusion post doesn\'t exist!');
+                println('tophat fusion post file "${options.t}" doesn\'t exist!');
                 return false;
             }
             if (options.m && !new File(options.m).exists()) {
-                println('mapping file doesn\'t exist!');
+                println('mapping file "${options.m}" doesn\'t exist!');
                 return false;
             }
             if (options.o && !new File(options.o).exists()) {
-                println('SOAPFuse file doesn\'t exist!');
+                println('SOAPFuse file "${options.o}" doesn\'t exist!');
                 return false;
             }
             if (options.x && !new File(options.x).exists()) {
-                println('SOAPFuse directory doesn\'t exist!');
+                println('SOAPFuse directory "${options.x}" doesn\'t exist!');
                 return false;
             }
             if (options.j && !new File(options.j).exists()) {
-                println('CGA junction file doesn\'t exist!');
+                println('CGA junction file "${options.j}" doesn\'t exist!');
                 return false;
             }
             if (options.u && !new File(options.u).exists()) {
-                println('CGA events file doesn\'t exist!');
+                println('CGA events file "${options.u}" doesn\'t exist!');
                 return false;
             }
             return true;
