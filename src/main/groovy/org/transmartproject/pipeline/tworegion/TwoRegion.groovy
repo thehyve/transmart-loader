@@ -92,6 +92,7 @@ class TwoRegion extends HighDimImport {
                 subjectId = options.subjectId;
                 initSourceSystem(options.sampleId,  options.subjectId)
 
+                scanCgaMetadata()
                 insertMetadata()
 
                 insertCgaJunctions()
@@ -285,8 +286,37 @@ class TwoRegion extends HighDimImport {
         return false;
     }
 
+    private static void scanCgaMetadata() {
+        def f = new File(options.cgaJunctions).newReader()
+        while (true) {
+            def line = f.readLine()
+            //read only header
+            if (line.length() > 0 && line[0] == '#') {
+                if (line.startsWith('#GENE_ANNOTATIONS\t')) {
+                    buildVersion = line.replaceFirst('#GENE_ANNOTATIONS\t', '')
+                }
+                if (line.startsWith('#GENERATED_AT\t')) {
+                    generatedOn = line.replaceFirst('#GENERATED_AT\t', '')
+                }
+            } else
+                break;
+        }
+        if (options.ref == false) {
+            if (buildVersion.contains('37'))
+                genomeBuild = 'hg19'
+            else if (buildVersion.contains('36'))
+                genomeBuild = 'hg18'
+            else
+                genomeBuild = 'hg38'
+        } else
+            buildVersion = options.ref
+        marker = 'two_region'
+        platform = 'TR_CGA_'+genomeBuild+'_'+generatedOn
+        if (platform.length() > 50)
+            platform = platform.substring(0, 50)
+    }
+
     private static void insertCgaJunctions() {
-        String platform;
         try {
             def updatedCounts = deapp.withBatch(100, "INSERT INTO deapp.de_two_region_junction\
              (up_chr, up_pos, up_strand, up_end, down_chr, down_pos, down_strand, down_end, is_in_frame, external_id, assay_id) VALUES \
@@ -294,10 +324,6 @@ class TwoRegion extends HighDimImport {
                 BatchingPreparedStatementWrapper it ->
                     new File(options.cgaJunctions).eachLine {line ->
                         if (line.size() == 0 || line[0] == '#' || line[0] == ' ' || line[0] == '>') {
-                            //header
-                            if (line.startsWith('#GENOME_REFERENCE\t')) {
-                                platform = line.replaceFirst('#GENOME_REFERENCE\t', '')
-                            }
                             return;
                         }
                         def tokens = line.split();

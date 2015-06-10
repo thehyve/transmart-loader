@@ -46,6 +46,13 @@ class HighDimImport {
     protected static String concept
     protected static String subjectId
 
+    //platform
+    protected static String platform
+    protected static String buildVersion
+    protected static String generatedOn
+    protected static String genomeBuild
+    protected static String marker
+
     //processed vars
     protected static String sourceSystem
     protected static String procedureName
@@ -291,7 +298,7 @@ class HighDimImport {
                                      '$conceptCd', \
                                      '$datasetId', \
                                      'two_region',\
-                                     'two_region')");
+                                     '$platform')");
             assayId = i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId ")[0];
             stepCt++;
             writeAudit('Merged de_subject_sample_mapping', 1, stepCt, 'Done');
@@ -310,7 +317,7 @@ class HighDimImport {
                                                          $conceptCd, \
                                                          $datasetId, \
                                                          'two_region',\
-                                                         'two_region'\
+                                                         '$platform'\
                                             WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId  );\n");
             if (inserted.empty) {
                 assayId = i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId ")[0];
@@ -330,22 +337,22 @@ class HighDimImport {
         //first try to insert the gpl info, if it exists get its num. We assume it usually won't exist
         if (isOracle) {
             i2b2metadata.execute("merge into deapp.de_gpl_info p" +
-                    "using (select 'two_region' as platform from dual) d " +
+                    "using (select '$platform' as platform from dual) d " +
                     "       on (p.platform=d.platform) " +
                     "when not matched then " +
                     "INSERT INTO deapp.de_gpl_info(\n" +
                     "            platform, title, organism, annotation_date, marker_type, genome_build, \n" +
                     "            release_nbr)\n" +
-                    "    VALUES ('two_region', 'Two region', 'Homo sapiens', null, 'two_region', 'hg19', \n" +
-                    "            null)"
+                    "    VALUES ('$platform', 'Two region', 'Homo sapiens',TO_DATE('$generatedOn',  'YYYY-MMM-DD\"T\"HH24:MI:SS\"Z\"') , 'two_region', '$genomeBuild', \n" +
+                    "            '$buildVersion')"
                     );
         } else {
             def inserted = deapp.executeInsert("INSERT INTO deapp.de_gpl_info(\n" +
                     "            platform, title, organism, annotation_date, marker_type, genome_build, \n" +
                     "            release_nbr)\n" +
-                    "     select 'two_region', 'Two region', 'Homo sapiens', null, 'two_region', 'hg19', \n" +
-                    "            null " +
-                    "WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_gpl_info WHERE platform = 'two_region');\n");
+                    "     select '$platform', 'Two region', 'Homo sapiens', cast('$generatedOn' as timestamp), 'two_region', '$genomeBuild', \n" +
+                    "            '$buildVersion' " +
+                    "WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_gpl_info WHERE platform = '$platform');\n");
             if (!inserted.empty) {
                 stepCt++;
                 writeAudit('Inserted de_gpl_info', 1, stepCt, 'Done');
