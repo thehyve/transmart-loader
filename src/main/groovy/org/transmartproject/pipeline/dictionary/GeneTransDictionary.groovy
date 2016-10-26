@@ -39,7 +39,6 @@ class GeneTransDictionary {
 
                 // Split values
                 String[] split = line.split("\t")
-                log.info(split[0] + "  :  " + split[1])
                 String transcriptId = split[0]
                 String geneId = split[1]
 
