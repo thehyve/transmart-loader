@@ -45,7 +45,9 @@ class CorrelationLoader {
 
         // Get or create data correlation description ids
         bioDataCorrelDescrId1 = getOrCreateBioDataCorrelId(bioDataCorrelDescr, correlation1)
-        bioDataCorrelDescrId2 = getOrCreateBioDataCorrelId(bioDataCorrelDescr, correlation2)
+        if (correlation2 != "") {
+            bioDataCorrelDescrId2 = getOrCreateBioDataCorrelId(bioDataCorrelDescr, correlation2)
+        }
     }
 
     private long getOrCreateBioDataCorrelId(BioDataCorrelDescr bioDataCorrelDescr, String correlation) {
@@ -77,6 +79,28 @@ class CorrelationLoader {
         if (bioMarkerId1 != null && bioMarkerId2 != null) {
             bioDataCorrelation.insertBioDataCorrelation(bioMarkerId1, bioMarkerId2, bioDataCorrelDescrId1)
             bioDataCorrelation.insertBioDataCorrelation(bioMarkerId2, bioMarkerId1, bioDataCorrelDescrId2)
+            return true;
+        }
+        return false;
+    }
+
+    public boolean insertGeneTranscriptCorrelation(CorrelationEntry correlationEntry) {
+
+        // Look up the BIO_MARKER_ID for EntrezGene ID
+        BioMarker bioMarker = new BioMarker()
+        bioMarker.setBiomart(sqlBiomart)
+
+        Long bioMarkerId1 = bioMarker.getBioMarkerID(correlationEntry.symbol1,
+                correlationEntry.organism, correlationEntry.markerType1)
+
+        // Look up the BIO_MARKER_ID for Ensembl Transcript ID
+        bioMarker = new BioMarker()
+        bioMarker.setBiomart(sqlBiomart)
+        Long bioMarkerId2 = bioMarker.getBioMarkerIDBySymbol(correlationEntry.symbol2,
+                correlationEntry.organism, correlationEntry.markerType2)
+        // Add the correlation to BIO_DATA_CORRELATION if possible
+        if (bioMarkerId1 != null && bioMarkerId2 != null) {
+            bioDataCorrelation.insertBioDataCorrelation(bioMarkerId1, bioMarkerId2, bioDataCorrelDescrId1)
             return true;
         }
         return false;
