@@ -60,12 +60,14 @@ class DictionaryLoader {
         // Determine the id of the keyword that was just inserted
         long searchKeywordID = searchKeyword.getSearchKeywordId(bmEntry.symbol,
                 bmEntry.markerType, bioMarkerID)
-        // SEARCH_KEYWORD_TERM (for symbol)
-        insertTermIntoSearchKeywordTerm(bmEntry.symbol, searchKeywordID)
+        if (searchKeywordID > 0) {
+            // SEARCH_KEYWORD_TERM (for symbol)
+            insertTermIntoSearchKeywordTerm(bmEntry.symbol, searchKeywordID)
 
-        // Insert synonyms (BIO_DATA_EXT_CODE and SEARCH_KEYWORD_TERM),
-        // linking them to the corresponding biomarker and search keyword
-        insertSynonyms(bmEntry, bioMarkerID, searchKeywordID)
+            // Insert synonyms (BIO_DATA_EXT_CODE and SEARCH_KEYWORD_TERM),
+            // linking them to the corresponding biomarker and search keyword
+            insertSynonyms(bmEntry, bioMarkerID, searchKeywordID)
+        }
     }
 
     private void insertSynonyms(BioMarkerEntry bmEntry, long bioMarkerID, long searchKeywordID) {

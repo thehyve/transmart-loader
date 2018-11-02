@@ -169,6 +169,8 @@ class SearchKeyword {
 
         if (isSearchKeywordExist(keyword, dataCategory, bioDataId)) {
             log.info "$keyword:$dataCategory:$bioDataId already exists in SEARCH_KEYWORD ..."
+        } else if (isUniqueIdExist(uniqueId, dataCategory)) {
+            log.warn "Unique id ${uniqueId} already exists in ${dataCategory} data category"
         } else {
             log.info "Insert $keyword:$dataCategory:$bioDataId into SEARCH_KEYWORD ..."
             searchapp.execute(qry, [
@@ -190,6 +192,13 @@ class SearchKeyword {
         return count > 0
     }
 
+
+    boolean isUniqueIdExist(String uniqueId, String dataCategory) {
+        String qry = "select count(*) from search_keyword where unique_id=? and data_category=?"
+        GroovyRowResult rowResult = searchapp.firstRow(qry, [uniqueId, dataCategory])
+        int count = rowResult[0]
+        return count > 0
+    }
 
     boolean isSearchKeywordExist(String keyword, String dataCategory, long bioMarkerID) {
         String qry = "select count(*) from search_keyword where keyword=? and data_category=? and bio_data_id=?"
