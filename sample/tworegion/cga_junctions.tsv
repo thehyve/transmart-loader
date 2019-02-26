@@ -1,3 +1,15 @@
+#ASSEMBLY_ID	HCC1187-H-200-37-ASM-N1
+#SOFTWARE_VERSION	2.0.0.32
+#GENERATED_BY	cgatools
+#GENERATED_AT	2011-Sep-25 10:08:06.373682
+#FORMAT_VERSION	2.0
+#GENOME_REFERENCE	NCBI build 37
+#SAMPLE	GS00258-DNA_E01
+#TYPE	JUNCTIONS
+#DBSNP_BUILD	dbSNP build 132
+#GENE_ANNOTATIONS	NCBI build 37.2
+
+>Id	LeftChr	LeftPosition	LeftStrand	LeftLength	RightChr	RightPosition	RightStrand	RightLength	StrandConsistent	Interchromosomal	Distance	DiscordantMatePairAlignments	JunctionSequenceResolved	TransitionSequence	TransitionLength	LeftRepeatClassification	RightRepeatClassification	LeftGenes	RightGenes	XRef	DeletedTransposableElement	KnownUnderrepresentedRepeat	FrequencyInBaselineGenomeSet	AssembledSequence	EventId	Type	RelatedJunctions
 3783	chr1	859357	+	427	chr1	860197	+	303
 3782	chr1	953827	+	535	chr1	954376	+	335
 3781	chr1	1132582	+	474	chr1	1133003	+	445

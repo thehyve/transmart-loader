@@ -46,6 +46,13 @@ class HighDimImport {
     protected static String concept
     protected static String subjectId
 
+    //platform
+    protected static String platform
+    protected static String buildVersion
+    protected static String generatedOn
+    protected static String genomeBuild
+    protected static String marker
+
     //processed vars
     protected static String sourceSystem
     protected static String procedureName
@@ -124,6 +131,7 @@ class HighDimImport {
 
     protected static void insertMetadata() {
         insertPatient()
+        insertGplPlatform()
         insertSubjectSampleMapping()
         insertObservationFact()
         insertSampleDimension()
@@ -154,10 +162,10 @@ class HighDimImport {
         }
         def pathEls = concept.split('\\\\');
         String path = "\\"
-        for (Integer level = 1; level < topLevel; level++) {
-            String node = pathEls[level];
+        for (Integer level = 0; level < topLevel-1; level++) {
+            String node = pathEls[level+1];
             path = path + node + "\\";
-            String attr = (level == topLevel - 1) ? "LAH" : "FA";
+            String attr = (level == topLevel - 2) ? "LAH" : "FA";
             conceptCd = insertConceptNode(path, node, level, attr)
         }
     }
@@ -282,13 +290,15 @@ class HighDimImport {
                                     subject_id, \
                                     concept_code, \
                                     trial_name, \
+                                    gpl_id, \
                                     platform) \
                            Values (DEAPP.SEQ_ASSAY_ID.nextval,\
                                       $patientNum, \
                                      '$subjectId', \
                                      '$conceptCd', \
                                      '$datasetId', \
-                                     'two_region')");
+                                     'two_region',\
+                                     '$platform')");
             assayId = i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId ")[0];
             stepCt++;
             writeAudit('Merged de_subject_sample_mapping', 1, stepCt, 'Done');
@@ -299,13 +309,15 @@ class HighDimImport {
                                     assay_id, \
                                     concept_code, \
                                     trial_name, \
+                                    gpl_id, \
                                     platform) \
                                                          select $patientNum, \
                                                          $subjectId, \
                                                          nextval( 'deapp.seq_assay_id' ), \
                                                          $conceptCd, \
                                                          $datasetId, \
-                                                         'two_region'\
+                                                         'two_region',\
+                                                         '$platform'\
                                             WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId  );\n");
             if (inserted.empty) {
                 assayId = i2b2demodata.firstRow("SELECT assay_id FROM deapp.de_subject_sample_mapping WHERE concept_code = $conceptCd  AND subject_id=$subjectId ")[0];
@@ -321,6 +333,32 @@ class HighDimImport {
         }
     }
 
+    private static void insertGplPlatform() {
+        //first try to insert the gpl info, if it exists get its num. We assume it usually won't exist
+        if (isOracle) {
+            i2b2metadata.execute("merge into deapp.de_gpl_info p" +
+                    "using (select '$platform' as platform from dual) d " +
+                    "       on (p.platform=d.platform) " +
+                    "when not matched then " +
+                    "INSERT INTO deapp.de_gpl_info(\n" +
+                    "            platform, title, organism, annotation_date, marker_type, genome_build, \n" +
+                    "            release_nbr)\n" +
+                    "    VALUES ('$platform', 'Two region', 'Homo sapiens',TO_DATE('$generatedOn',  'YYYY-MMM-DD\"T\"HH24:MI:SS\"Z\"') , 'two_region', '$genomeBuild', \n" +
+                    "            '$buildVersion')"
+                    );
+        } else {
+            def inserted = deapp.executeInsert("INSERT INTO deapp.de_gpl_info(\n" +
+                    "            platform, title, organism, annotation_date, marker_type, genome_build, \n" +
+                    "            release_nbr)\n" +
+                    "     select '$platform', 'Two region', 'Homo sapiens', cast('$generatedOn' as timestamp), 'two_region', '$genomeBuild', \n" +
+                    "            '$buildVersion' " +
+                    "WHERE NOT EXISTS ( SELECT NULL FROM deapp.de_gpl_info WHERE platform = '$platform');\n");
+            if (!inserted.empty) {
+                stepCt++;
+                writeAudit('Inserted de_gpl_info', 1, stepCt, 'Done');
+            }
+        }
+    }
     private static void insertPatient() {
         //first try to insert the patient, if it exists get its num. We assume it usually won't exist
         if (isOracle) {
@@ -381,11 +419,15 @@ class HighDimImport {
         }
     }
 
+    protected static void finish() {
+        tm_cz.execute(executeSP+" tm_cz.i2b2_create_concept_counts('$concept', '$jobId')");
+        writeAudit('Finished metadata creation',0,1,'Done');
+    }
     private static int insertConceptNode(String path, String node, int level, String attr) {
         Integer conceptId;
         //don't insert root node ("Public Studies") with a specific dataset id
         String sourcesystem = level == 1 ? null : datasetId;
-        String comment = "Trial:"+datasetId;
+        String comment = "trial:"+datasetId;
         //first try to insert concept, if it exists get its cd. We assume it usually won't exist
         if (isOracle) {
             i2b2demodata.execute("merge into i2b2demodata.concept_dimension c  " +
@@ -393,13 +435,13 @@ class HighDimImport {
                     "       on (c.concept_path=d.path) " +
                     "when not matched then " +
                     "       insert  (concept_path, name_char, update_date, download_date, import_date, sourcesystem_cd)" +
-                    "        values ('$path','$node',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,null)");
+                    "        values ('$path','$node',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,'$sourcesystem')");
             stepCt++;
             writeAudit('Merged concept '+path,0,stepCt ,'Done');
         } else {
             List inserted;
             inserted = i2b2demodata.executeInsert("insert into i2b2demodata.concept_dimension (concept_path, name_char, update_date, download_date, import_date, sourcesystem_cd)\
-                    SELECT $path,$node,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,null  \
+                    SELECT $path,$node,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,$sourcesystem  \
                     WHERE NOT EXISTS ( SELECT NULL FROM i2b2demodata.concept_dimension WHERE concept_path = $path )")
             if (inserted.empty) {
             } else {
@@ -508,6 +550,108 @@ class HighDimImport {
                                 WHERE NOT EXISTS ( SELECT NULL FROM i2b2metadata.i2b2 WHERE c_fullname = $path )").empty) {
                 stepCt++;
                 writeAudit('Added i2b2 ' + path, 0, stepCt, 'Done');
+            }
+        }
+        def expsourcesystem = 'EXP:'+sourcesystem
+        if (isOracle) {
+            i2b2metadata.execute("merge into i2b2metadata.i2b2_secure c  " +
+                    "using (select '$path' as path from dual) d " +
+                    "       on (c.c_fullname=d.path) " +
+                    "when not matched then " +
+                    "       insert  \
+                                             (c_hlevel \
+                                              ,c_fullname \
+                                              ,c_name \
+                                              ,c_visualattributes \
+                                              ,c_synonym_cd \
+                                              ,c_facttablecolumn \
+                                              ,c_tablename \
+                                              ,c_columnname \
+                                              ,c_dimcode \
+                                              ,c_tooltip \
+                                              ,update_date \
+                                              ,download_date \
+                                              ,import_date \
+                                              ,sourcesystem_cd \
+                                              ,c_basecode \
+                                              ,c_operator \
+                                              ,c_columndatatype \
+                                              ,c_comment \
+                                              ,m_applied_path \
+                                              ,c_metadataxml \
+                                              ,secure_obj_token \
+                                             ) \
+                             VALUES ($level \
+                                     ,'$path' \
+                                     ,'$node' \
+                                     ,'$attr' \
+                                     ,'N' \
+                                     ,'CONCEPT_CD' \
+                                     ,'CONCEPT_DIMENSION' \
+                                     ,'CONCEPT_PATH' \
+                                     ,'$path' \
+                                     ,'$path' \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,'$sourcesystem' \
+                                     ,$conceptId \
+                                     ,'LIKE' \
+                                     ,'T' \
+                                     ,'$comment' \
+                                     ,'@' \
+                                     ,null \
+                                     ,$expsourcesystem)")
+            stepCt++;
+            writeAudit('Merged i2b2_secure ' + path, 0, stepCt, 'Done');
+        } else {
+            if (!i2b2metadata.executeInsert("insert into i2b2metadata.i2b2_secure \
+                                             (c_hlevel \
+                                              ,c_fullname \
+                                              ,c_name \
+                                              ,c_visualattributes \
+                                              ,c_synonym_cd \
+                                              ,c_facttablecolumn \
+                                              ,c_tablename \
+                                              ,c_columnname \
+                                              ,c_dimcode \
+                                              ,c_tooltip \
+                                              ,update_date \
+                                              ,download_date \
+                                              ,import_date \
+                                              ,sourcesystem_cd \
+                                              ,c_basecode \
+                                              ,c_operator \
+                                              ,c_columndatatype \
+                                              ,c_comment \
+                                              ,m_applied_path \
+                                              ,c_metadataxml \
+                                              ,secure_obj_token \
+                                             ) \
+                             select $level \
+                                     ,$path \
+                                     ,$node \
+                                     ,$attr \
+                                     ,'N' \
+                                     ,'CONCEPT_CD' \
+                                     ,'CONCEPT_DIMENSION' \
+                                     ,'CONCEPT_PATH' \
+                                     ,$path \
+                                     ,$path \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,current_timestamp \
+                                     ,$sourcesystem \
+                                     ,$conceptId \
+                                     ,'LIKE' \
+                                     ,'T' \
+                                     ,$comment \
+                                     ,'@' \
+                                     ,null\
+                                     ,$expsourcesystem\
+                            WHERE NOT EXISTS ( SELECT NULL FROM i2b2metadata.i2b2_secure WHERE c_fullname = $path )").empty) {
+                stepCt++;
+                writeAudit('Added i2b2_secure ' + path, 0, stepCt, 'Done');
             }
         }
         return conceptId;

@@ -92,6 +92,7 @@ class TwoRegion extends HighDimImport {
                 subjectId = options.subjectId;
                 initSourceSystem(options.sampleId,  options.subjectId)
 
+                scanCgaMetadata()
                 insertMetadata()
 
                 insertCgaJunctions()
@@ -108,6 +109,7 @@ class TwoRegion extends HighDimImport {
             } else {
                 throw new IllegalArgumentException("Nothing to do, soap, tophat or cga needs to be specified")
             }
+            finish()
             endAudit('SUCCESS');
         }
         catch (Exception ex) {
@@ -255,27 +257,27 @@ class TwoRegion extends HighDimImport {
             println('unknown reference');
         } else {
             if (options.t && !new File(options.t).exists()) {
-                println('tophat fusion post doesn\'t exist!');
+                println('tophat fusion post file "${options.t}" doesn\'t exist!');
                 return false;
             }
             if (options.m && !new File(options.m).exists()) {
-                println('mapping file doesn\'t exist!');
+                println('mapping file "${options.m}" doesn\'t exist!');
                 return false;
             }
             if (options.o && !new File(options.o).exists()) {
-                println('SOAPFuse file doesn\'t exist!');
+                println('SOAPFuse file "${options.o}" doesn\'t exist!');
                 return false;
             }
             if (options.x && !new File(options.x).exists()) {
-                println('SOAPFuse directory doesn\'t exist!');
+                println('SOAPFuse directory "${options.x}" doesn\'t exist!');
                 return false;
             }
             if (options.j && !new File(options.j).exists()) {
-                println('CGA junction file doesn\'t exist!');
+                println('CGA junction file "${options.j}" doesn\'t exist!');
                 return false;
             }
             if (options.u && !new File(options.u).exists()) {
-                println('CGA events file doesn\'t exist!');
+                println('CGA events file "${options.u}" doesn\'t exist!');
                 return false;
             }
             return true;
@@ -284,19 +286,44 @@ class TwoRegion extends HighDimImport {
         return false;
     }
 
+    private static void scanCgaMetadata() {
+        def f = new File(options.cgaJunctions).newReader()
+        while (true) {
+            def line = f.readLine()
+            //read only header
+            if (line.length() > 0 && line[0] == '#') {
+                if (line.startsWith('#GENE_ANNOTATIONS\t')) {
+                    buildVersion = line.replaceFirst('#GENE_ANNOTATIONS\t', '')
+                }
+                if (line.startsWith('#GENERATED_AT\t')) {
+                    generatedOn = line.replaceFirst('#GENERATED_AT\t', '')
+                }
+            } else
+                break;
+        }
+        if (options.ref == false) {
+            if (buildVersion.contains('37'))
+                genomeBuild = 'hg19'
+            else if (buildVersion.contains('36'))
+                genomeBuild = 'hg18'
+            else
+                genomeBuild = 'hg38'
+        } else
+            buildVersion = options.ref
+        marker = 'two_region'
+        platform = 'TR_CGA_'+genomeBuild+'_'+generatedOn
+        if (platform.length() > 50)
+            platform = platform.substring(0, 50)
+    }
+
     private static void insertCgaJunctions() {
-        String platform;
         try {
             def updatedCounts = deapp.withBatch(100, "INSERT INTO deapp.de_two_region_junction\
              (up_chr, up_pos, up_strand, up_end, down_chr, down_pos, down_strand, down_end, is_in_frame, external_id, assay_id) VALUES \
             (:up_chr,:up_pos,:up_strand,:up_end,:down_chr,:down_pos,:down_strand,:down_end, null,       :external_id,:assay_id)", {
                 BatchingPreparedStatementWrapper it ->
                     new File(options.cgaJunctions).eachLine {line ->
-                        if (line[0] == '#' || line[0] == ' ' || line[0] == '>') {
-                            //header
-                            if (line.startsWith('#GENOME_REFERENCE\t')) {
-                                platform = line.replaceFirst('#GENOME_REFERENCE\t', '')
-                            }
+                        if (line.size() == 0 || line[0] == '#' || line[0] == ' ' || line[0] == '>') {
                             return;
                         }
                         def tokens = line.split();
